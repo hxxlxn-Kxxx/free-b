@@ -7,17 +7,30 @@ import { Grid, Typography, Paper, Stack, Box } from "@mui/material";
 import StatCard from "../../../src/components/StatCard";
 import FullCalendar from "@fullcalendar/react";
 import daygridPlugin from "@fullcalendar/daygrid";
+import { useState } from "react";
+import AssignmentModal from "../../../src/components/AssignmentModal";
+import { Button } from "@mui/material";
 
 export default function DashboardPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <Box>
-      <Typography
-        variant="h4"
-        fontWeight="bold"
-        sx={{ mb: 4, color: "#1e293b" }}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 4,
+        }}
       >
-        종합 대시보드
-      </Typography>
+        <Typography variant="h4" fontWeight="bold" sx={{ color: "#1e293b" }}>
+          종합 대시보드
+        </Typography>
+        <Button variant="contained" onClick={() => setIsModalOpen(true)}>
+          + 새 수업 배정
+        </Button>
+      </Box>
 
       {/* 1. 상단 요약 카드 섹션 */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -122,6 +135,10 @@ export default function DashboardPage() {
           </Stack>
         </Grid>
       </Grid>
+      <AssignmentModal
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </Box>
   );
 }
