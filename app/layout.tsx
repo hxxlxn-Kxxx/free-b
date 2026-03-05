@@ -12,7 +12,7 @@ import theme from "../src/theme";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Settly Admin",
+  title: "free-b Admin",
   description: "스마트한 강사 관리 시스템",
 };
 

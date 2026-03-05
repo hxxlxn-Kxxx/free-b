@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Box,
   Drawer,
@@ -15,6 +15,7 @@ import {
   Avatar,
   IconButton,
   Badge,
+  Collapse,
 } from "@mui/material";
 import {
   Dashboard,
@@ -24,6 +25,8 @@ import {
   Settings,
   Notifications,
   Search,
+  ExpandLess,
+  ExpandMore,
 } from "@mui/icons-material";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -35,12 +38,22 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const pathname = usePathname(); // 현재 우리가 어떤 주소에 있는지 확인하는 Next.js 훅
+  const pathname = usePathname();
 
-  // 사이드바 메뉴 리스트
+  const [openInstructors, setOpenInstructors] = useState(true);
+
   const menuItems = [
     { text: "Dashboard", icon: <Dashboard />, path: "/dashboard" },
-    { text: "Instructors", icon: <People />, path: "/instructors" },
+    {
+      text: "Instructors",
+      icon: <People />,
+      path: "/instructors",
+      // 하위 메뉴 배열 추가
+      subItems: [
+        { text: "강사 운영 리스트", path: "/instructors/list" },
+        { text: "전체 강사 DB", path: "/instructors/db" },
+      ],
+    },
     { text: "Schedules", icon: <Event />, path: "/schedules" },
     { text: "Settlement", icon: <Receipt />, path: "/settlement" },
     { text: "Settings", icon: <Settings />, path: "/settings" },
@@ -48,7 +61,7 @@ export default function AdminLayout({
 
   return (
     <Box sx={{ display: "flex", bgcolor: "#f8f9fa", minHeight: "100vh" }}>
-      {/* 1. 상단 헤더 영역 */}
+      {/* 1. 상단 헤더 영역 (기존 유지) */}
       <AppBar
         position="fixed"
         sx={{
@@ -62,7 +75,7 @@ export default function AdminLayout({
       >
         <Toolbar sx={{ justifyContent: "space-between" }}>
           <Typography variant="h6" fontWeight="bold">
-            Settly Admin
+            free-b Admin
           </Typography>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <IconButton>
@@ -100,52 +113,116 @@ export default function AdminLayout({
             fontWeight="bold"
             sx={{ letterSpacing: 1 }}
           >
-            SETTLY
+            free-b
           </Typography>
         </Toolbar>
         <Box sx={{ overflow: "auto", px: 2, mt: 2 }}>
           <List>
             {menuItems.map((item) => {
-              // 현재 접속한 주소와 메뉴 경로가 같으면 활성화(파란색) 처리!
               const isActive = pathname === item.path;
+              const isGroupActive = pathname.startsWith(item.path);
 
               return (
-                <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
-                  <ListItemButton
-                    onClick={() => router.push(item.path)}
-                    sx={{
-                      borderRadius: 2,
-                      bgcolor: isActive ? "primary.main" : "transparent",
-                      color: isActive ? "white" : "inherit",
-                      "&:hover": {
-                        bgcolor: isActive ? "primary.main" : "rgba(0,0,0,0.04)",
-                      },
-                    }}
-                  >
-                    <ListItemIcon
+                <React.Fragment key={item.text}>
+                  {/* 메인 메뉴 항목 */}
+                  <ListItem disablePadding sx={{ mb: 1 }}>
+                    <ListItemButton
+                      onClick={() => {
+                        if (item.subItems) {
+                          if (!pathname.startsWith(item.path)) {
+                            router.push(item.subItems[0].path);
+                            setOpenInstructors(true);
+                          } else {
+                            setOpenInstructors(!openInstructors);
+                          }
+                        } else {
+                          router.push(item.path);
+                        }
+                      }}
                       sx={{
-                        minWidth: 40,
-                        color: isActive ? "white" : "inherit",
+                        borderRadius: 2,
+                        bgcolor:
+                          isActive && !item.subItems
+                            ? "primary.main"
+                            : "transparent",
+                        color: isActive && !item.subItems ? "white" : "inherit",
+                        "&:hover": {
+                          bgcolor:
+                            isActive && !item.subItems
+                              ? "primary.main"
+                              : "rgba(0,0,0,0.04)",
+                        },
                       }}
                     >
-                      {item.icon}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={item.text}
-                      primaryTypographyProps={{
-                        fontSize: "14px",
-                        fontWeight: isActive ? 600 : 500,
-                      }}
-                    />
-                  </ListItemButton>
-                </ListItem>
+                      <ListItemIcon
+                        sx={{
+                          minWidth: 40,
+                          color:
+                            isActive && !item.subItems ? "white" : "inherit",
+                        }}
+                      >
+                        {item.icon}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={item.text}
+                        primaryTypographyProps={{
+                          fontSize: "14px",
+                          fontWeight: isGroupActive ? 600 : 500,
+                        }}
+                      />
+                      {/* 하위 메뉴가 있으면 화살표 표시 */}
+                      {item.subItems &&
+                        (openInstructors ? <ExpandLess /> : <ExpandMore />)}
+                    </ListItemButton>
+                  </ListItem>
+
+                  {/* 하위 메뉴 (아코디언 영역) */}
+                  {item.subItems && (
+                    <Collapse in={openInstructors} timeout="auto" unmountOnExit>
+                      <List component="div" disablePadding>
+                        {item.subItems.map((subItem) => {
+                          const isSubActive = pathname === subItem.path;
+                          return (
+                            <ListItemButton
+                              key={subItem.text}
+                              onClick={() => router.push(subItem.path)}
+                              sx={{
+                                pl: 7, // 하위 메뉴 들여쓰기
+                                py: 1,
+                                mb: 0.5,
+                                borderRadius: 2,
+                                bgcolor: isSubActive
+                                  ? "rgba(99, 102, 241, 0.1)"
+                                  : "transparent",
+                                color: isSubActive
+                                  ? "primary.main"
+                                  : "text.secondary",
+                                "&:hover": {
+                                  bgcolor: "rgba(99, 102, 241, 0.05)",
+                                },
+                              }}
+                            >
+                              <ListItemText
+                                primary={subItem.text}
+                                primaryTypographyProps={{
+                                  fontSize: "13px",
+                                  fontWeight: isSubActive ? 600 : 400,
+                                }}
+                              />
+                            </ListItemButton>
+                          );
+                        })}
+                      </List>
+                    </Collapse>
+                  )}
+                </React.Fragment>
               );
             })}
           </List>
         </Box>
       </Drawer>
 
-      {/* 3. 메인 콘텐츠 영역 (이 자리에 대시보드나 강사 목록이 들어옵니다!) */}
+      {/* 3. 메인 콘텐츠 영역 */}
       <Box
         component="main"
         sx={{
