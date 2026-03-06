@@ -44,6 +44,7 @@ export default function AdminLayout({
   const pathname = usePathname();
 
   const [openInstructors, setOpenInstructors] = useState(true);
+  const [openSchedules, setOpenSchedules] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   const menuItems = [
@@ -58,7 +59,12 @@ export default function AdminLayout({
         { text: "전체 강사 DB", path: "/instructors/db" },
       ],
     },
-    { text: "Schedules", icon: <Event />, path: "/schedules" },
+    { text: "Schedules", icon: <Event />, path: "/schedules",
+      subItems: [
+        { text: "수업 관리", path: "/schedules/classes" },
+        { text: "수업지 관리", path: "/schedules/locations" },
+      ],
+     },
     { text: "Contracts", icon: <Receipt />, path: "/contracts" },
     { text: "Settlements", icon: <Paid />, path: "/settlements" },
     { text: "Settings", icon: <Settings />, path: "/settings" },

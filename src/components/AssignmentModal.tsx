@@ -334,7 +334,7 @@ export default function AssignmentModal({
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleCloseModal} maxWidth="sm" fullWidth>
       <DialogTitle
         sx={{
           fontWeight: "bold",
