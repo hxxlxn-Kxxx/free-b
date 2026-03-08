@@ -20,6 +20,7 @@ import {
   Divider,
   Grid,
   InputAdornment,
+  CircularProgress,
 } from "@mui/material";
 import { Add, Search } from "@mui/icons-material";
 
@@ -37,9 +38,18 @@ const MOCK_CLASSES = [
     lectureTitle: "[초등] 역사 탐험대 1기",
     locationName: "송파청소년수련관",
     instructorName: "김철수",
-    startsAt: "2026-03-10T05:00:00Z", // KST 14:00 (필드명 수정됨)
-    endsAt: "2026-03-10T07:00:00Z", // KST 16:00
+    startsAt: "2026-03-10T05:00:00Z",
+    endsAt: "2026-03-10T07:00:00Z",
     classStatus: "SCHEDULED",
+  },
+  {
+    classId: "CLS_1002",
+    lectureTitle: "[중등] 근현대사 바로알기",
+    locationName: "마포평생학습관",
+    instructorName: "-",
+    startsAt: "2026-03-12T01:00:00Z",
+    endsAt: "2026-03-12T03:00:00Z",
+    classStatus: "PENDING",
   },
 ];
 
@@ -51,6 +61,9 @@ const formatUtcToLocal = (utcString: string) => {
 export default function ClassManagementPage() {
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // API 통신 중 버튼 비활성화 및 스피너를 위한 상태
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     lectureTitle: "",
@@ -65,19 +78,15 @@ export default function ClassManagementPage() {
     deliveryNotes: "",
   });
 
-  // 폼 입력 핸들러
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 유효성 검증 로직 1: 날짜 유효성 (시작 시간이 종료 시간보다 빨라야 함)
   const isDateValid =
     formData.startsAt &&
     formData.endsAt &&
     new Date(formData.startsAt) < new Date(formData.endsAt);
-
-  // 유효성 검증 로직 2: 필수값 확인 (전달사항 deliveryNotes 제외 모두 필수라고 가정)
   const isRequiredFilled = !!(
     formData.lectureTitle &&
     formData.startsAt &&
@@ -89,40 +98,71 @@ export default function ClassManagementPage() {
     formData.guideNotionUrl &&
     formData.lessonDetails
   );
-
-  // 최종 제출 버튼 활성화 조건
   const isFormValid = isRequiredFilled && isDateValid;
 
-  // 폼 제출 (백엔드 전송 모의)
-  const handleSubmit = () => {
+  // API 연동이 포함된 제출 함수
+  const handleSubmit = async () => {
     if (!isFormValid) return;
 
-    const payload = {
-      ...formData,
-      startsAt: new Date(formData.startsAt).toISOString(),
-      endsAt: new Date(formData.endsAt).toISOString(),
-      payAmount: Number(formData.payAmount),
-      studentCount: Number(formData.studentCount),
-      classStatus: "PENDING", // 신규 등록 시 기본 상태(Enum)
-    };
+    setIsSubmitting(true);
 
-    console.log("[API 전송 모의] POST /api/classes", payload);
-    alert("새 수업이 성공적으로 등록되었습니다! (콘솔 확인)");
+    try {
+      const payload = {
+        ...formData,
+        startsAt: new Date(formData.startsAt).toISOString(),
+        endsAt: new Date(formData.endsAt).toISOString(),
+        payAmount: Number(formData.payAmount),
+        studentCount: Number(formData.studentCount),
+        classStatus: "PENDING", // 백엔드 Enum 명세 강제
+      };
 
-    // 초기화 및 닫기
-    setIsDrawerOpen(false);
-    setFormData({
-      lectureTitle: "",
-      startsAt: "",
-      endsAt: "",
-      payAmount: "",
-      studentCount: "",
-      region: "",
-      museum: "",
-      guideNotionUrl: "",
-      lessonDetails: "",
-      deliveryNotes: "",
-    });
+      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+      const token = localStorage.getItem("accessToken");
+
+      // POST /lessons API 호출
+      const response = await fetch(`${apiUrl}/lessons`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      // 실패 처리
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `서버 에러가 발생했습니다. (${response.status})`,
+        );
+      }
+
+      // 💡 성공 처리 (완료 조건: 목록으로 이동 / 패널 닫기)
+      alert("새 수업이 성공적으로 등록되었습니다!");
+      setIsDrawerOpen(false);
+
+      // 폼 초기화
+      setFormData({
+        lectureTitle: "",
+        startsAt: "",
+        endsAt: "",
+        payAmount: "",
+        studentCount: "",
+        region: "",
+        museum: "",
+        guideNotionUrl: "",
+        lessonDetails: "",
+        deliveryNotes: "",
+      });
+
+      // 실제 연동 시 여기서 목록 갱신 API(GET /lessons)를 다시 호출합니다.
+    } catch (error: any) {
+      console.error("API 통신 에러:", error);
+      // 실패 시 에러 메시지 표시
+      alert(`수업 생성 실패: ${error.message}`);
+    } finally {
+      setIsSubmitting(false); // 로딩 종료
+    }
   };
 
   return (
@@ -187,6 +227,9 @@ export default function ClassManagementPage() {
                 장소
               </TableCell>
               <TableCell align="center" sx={{ fontWeight: "bold" }}>
+                담당 강사
+              </TableCell>
+              <TableCell align="center" sx={{ fontWeight: "bold" }}>
                 시작 시간
               </TableCell>
               <TableCell align="center" sx={{ fontWeight: "bold" }}>
@@ -197,15 +240,24 @@ export default function ClassManagementPage() {
           <TableBody>
             {MOCK_CLASSES.map((row) => (
               <TableRow key={row.classId} hover>
-                <TableCell align="center">{row.lectureTitle}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: "medium" }}>
+                  {row.lectureTitle}
+                </TableCell>
                 <TableCell align="center">{row.locationName}</TableCell>
+                <TableCell align="center">{row.instructorName}</TableCell>
                 <TableCell align="center">
                   {formatUtcToLocal(row.startsAt)}
                 </TableCell>
                 <TableCell align="center">
                   <Chip
                     label={CLASS_STATUS_MAP[row.classStatus]}
-                    color="primary"
+                    color={
+                      row.classStatus === "SCHEDULED"
+                        ? "primary"
+                        : row.classStatus === "PENDING"
+                          ? "warning"
+                          : "default"
+                    }
                     size="small"
                   />
                 </TableCell>
@@ -248,8 +300,6 @@ export default function ClassManagementPage() {
                   required
                 />
               </Grid>
-
-              {/* 시간 입력 필드 (datetime-local 사용) */}
               <Grid item xs={6}>
                 <TextField
                   type="datetime-local"
@@ -286,12 +336,11 @@ export default function ClassManagementPage() {
                     formData.startsAt !== "" &&
                     formData.endsAt !== "" &&
                     !isDateValid
-                      ? "종료 시간이 시작 시간보다 빠를 수 없습니다."
+                      ? "종료 오류"
                       : ""
                   }
                 />
               </Grid>
-
               <Grid item xs={6}>
                 <TextField
                   type="number"
@@ -324,7 +373,6 @@ export default function ClassManagementPage() {
                   }}
                 />
               </Grid>
-
               <Grid item xs={6}>
                 <TextField
                   label="지역 (region)"
@@ -345,7 +393,6 @@ export default function ClassManagementPage() {
                   required
                 />
               </Grid>
-
               <Grid item xs={12}>
                 <TextField
                   type="url"
@@ -358,7 +405,6 @@ export default function ClassManagementPage() {
                   placeholder="https://notion.so/..."
                 />
               </Grid>
-
               <Grid item xs={12}>
                 <TextField
                   label="수업 상세 내용 (lessonDetails)"
@@ -380,13 +426,12 @@ export default function ClassManagementPage() {
                   fullWidth
                   multiline
                   rows={2}
-                  placeholder="강사에게 전달할 추가 메모 (선택)"
+                  placeholder="선택 사항"
                 />
               </Grid>
             </Grid>
           </Box>
 
-          {/* 하단 고정 액션 버튼 */}
           <Box
             sx={{
               p: 3,
@@ -401,17 +446,24 @@ export default function ClassManagementPage() {
               color="inherit"
               fullWidth
               onClick={() => setIsDrawerOpen(false)}
+              disabled={isSubmitting}
             >
               취소
             </Button>
+
+            {/* API 호출 중일 때는 로딩 스피너 표시 및 버튼 비활성화 */}
             <Button
               variant="contained"
               color="primary"
               fullWidth
               onClick={handleSubmit}
-              disabled={!isFormValid} // 완료 조건: 미입력 및 날짜 오류 시 비활성화!
+              disabled={!isFormValid || isSubmitting}
             >
-              수업 등록하기
+              {isSubmitting ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                "수업 등록하기"
+              )}
             </Button>
           </Box>
         </Box>
