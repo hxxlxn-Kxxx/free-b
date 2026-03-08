@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -61,9 +61,41 @@ const formatUtcToLocal = (utcString: string) => {
 export default function ClassManagementPage() {
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-  // API 통신 중 버튼 비활성화 및 스피너를 위한 상태
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [isLoadingList, setIsLoadingList] = useState(true);
+  const [classes, setClasses] = useState<any[]>([]);
+
+  const fetchLessons = async () => {
+    setIsLoadingList(true);
+    try {
+      const token = localStorage.getItem("accessToken");
+      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+      // 상태 필터가 ALL이 아니면 쿼리 파라미터 추가 (?status=PENDING 등)
+      const queryParam =
+        filterStatus !== "ALL" ? `?status=${filterStatus}` : "";
+
+      const response = await fetch(`${apiUrl}/lessons${queryParam}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) throw new Error("목록 조회 실패");
+
+      const data = await response.json();
+      setClasses(Array.isArray(data) ? data : data.data || []);
+    } catch (error) {
+      console.error(error);
+      setClasses([]);
+    } finally {
+      setIsLoadingList(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLessons();
+  }, [filterStatus]);
 
   const [formData, setFormData] = useState({
     lectureTitle: "",
@@ -155,6 +187,8 @@ export default function ClassManagementPage() {
         deliveryNotes: "",
       });
 
+      fetchLessons();
+
       // 실제 연동 시 여기서 목록 갱신 API(GET /lessons)를 다시 호출합니다.
     } catch (error: any) {
       console.error("API 통신 에러:", error);
@@ -210,7 +244,12 @@ export default function ClassManagementPage() {
               </MenuItem>
             ))}
           </TextField>
-          <Button variant="contained" disableElevation startIcon={<Search />}>
+          <Button
+            variant="contained"
+            disableElevation
+            startIcon={<Search />}
+            onClick={fetchLessons}
+          >
             검색
           </Button>
         </Stack>
@@ -238,31 +277,58 @@ export default function ClassManagementPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {MOCK_CLASSES.map((row) => (
-              <TableRow key={row.classId} hover>
-                <TableCell align="center" sx={{ fontWeight: "medium" }}>
-                  {row.lectureTitle}
-                </TableCell>
-                <TableCell align="center">{row.locationName}</TableCell>
-                <TableCell align="center">{row.instructorName}</TableCell>
-                <TableCell align="center">
-                  {formatUtcToLocal(row.startsAt)}
-                </TableCell>
-                <TableCell align="center">
-                  <Chip
-                    label={CLASS_STATUS_MAP[row.classStatus]}
-                    color={
-                      row.classStatus === "SCHEDULED"
-                        ? "primary"
-                        : row.classStatus === "PENDING"
-                          ? "warning"
-                          : "default"
-                    }
-                    size="small"
-                  />
+            {isLoadingList ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center" sx={{ py: 5 }}>
+                  <CircularProgress size={30} sx={{ mb: 2 }} />
+                  <Typography variant="body2" color="textSecondary">
+                    데이터를 불러오는 중입니다...
+                  </Typography>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : classes.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center" sx={{ py: 5 }}>
+                  <Typography variant="body2" color="textSecondary">
+                    등록된 수업이 없습니다.
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              classes.map((row) => (
+                <TableRow key={row.id || row.classId || row.lectureTitle} hover>
+                  <TableCell align="center" sx={{ fontWeight: "medium" }}>
+                    {row.lectureTitle}
+                  </TableCell>
+                  <TableCell align="center">
+                    {row.museum || row.locationName || "-"}
+                  </TableCell>
+                  <TableCell align="center">
+                    {row.instructorName || "미배정"}
+                  </TableCell>
+                  <TableCell align="center">
+                    {formatUtcToLocal(row.startsAt)}
+                  </TableCell>
+                  <TableCell align="center">
+                    <Chip
+                      label={
+                        CLASS_STATUS_MAP[row.classStatus || row.status] ||
+                        row.classStatus ||
+                        row.status
+                      }
+                      color={
+                        ["SCHEDULED", "COMPLETED"].includes(
+                          row.classStatus || row.status,
+                        )
+                          ? "primary"
+                          : "warning"
+                      }
+                      size="small"
+                    />
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </TableContainer>
