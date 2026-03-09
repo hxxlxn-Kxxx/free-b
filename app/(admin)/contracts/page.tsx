@@ -1,42 +1,41 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Box,
-  Typography,
-  Button,
-  Paper,
-  Stack,
-  TextField,
+  Divider,
+  Drawer,
+  Grid,
   MenuItem,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
-  Drawer,
-  Divider,
-  Grid,
+  Typography,
 } from "@mui/material";
-import {
-  Add,
-  Search,
-  PictureAsPdf,
-  HistoryEdu,
-  VerifiedUser,
-} from "@mui/icons-material";
+import { Add, HistoryEdu, PictureAsPdf, Search, VerifiedUser } from "@mui/icons-material";
 
-// 백엔드 기준 ContractStatus enum
-type ContractStatus =
-  | "DRAFT"
-  | "SENT"
-  | "INSTRUCTOR_SIGNED"
-  | "FULLY_SIGNED"
-  | "VOID";
+import PageHeader from "@/src/components/admin/PageHeader";
+import FilterBar from "@/src/components/admin/FilterBar";
+import SurfaceCard from "@/src/components/admin/SurfaceCard";
+import AtomBadge from "@/src/components/atoms/AtomBadge";
+import AtomButton from "@/src/components/atoms/AtomButton";
+import AtomInput from "@/src/components/atoms/AtomInput";
 
-// 백엔드 enum → 한국어 텍스트 매핑
+type ContractStatus = "DRAFT" | "SENT" | "INSTRUCTOR_SIGNED" | "FULLY_SIGNED" | "VOID";
+
+type ContractRow = {
+  id: string;
+  name: string;
+  type: string;
+  status: ContractStatus;
+  startDate: string;
+  endDate: string;
+};
+
 const CONTRACT_STATUS_MAP: Record<ContractStatus, string> = {
   DRAFT: "초안",
   SENT: "발송",
@@ -45,16 +44,22 @@ const CONTRACT_STATUS_MAP: Record<ContractStatus, string> = {
   VOID: "무효",
 };
 
-// 💡 기획서 4-1 반영: 계약 상태 옵션 [cite: 86, 87, 88, 89, 90]
+const CONTRACT_TONE_MAP: Record<ContractStatus, string> = {
+  DRAFT: "draft",
+  SENT: "sent",
+  INSTRUCTOR_SIGNED: "viewed",
+  FULLY_SIGNED: "signed",
+  VOID: "cancelled",
+};
+
 const STATUS_OPTIONS = ["전체", "초안", "발송", "열람", "서명완료"];
 
-// 임시 계약 데이터
-const MOCK_CONTRACTS = [
+const MOCK_CONTRACTS: ContractRow[] = [
   {
     id: "C-2603-01",
     name: "김철수",
     type: "정규 프리랜서",
-    status: "FULLY_SIGNED" as ContractStatus,
+    status: "FULLY_SIGNED",
     startDate: "2026-03-01",
     endDate: "2026-08-31",
   },
@@ -62,7 +67,7 @@ const MOCK_CONTRACTS = [
     id: "C-2603-02",
     name: "이영희",
     type: "단기 대강",
-    status: "INSTRUCTOR_SIGNED" as ContractStatus,
+    status: "INSTRUCTOR_SIGNED",
     startDate: "2026-03-10",
     endDate: "2026-03-31",
   },
@@ -70,7 +75,7 @@ const MOCK_CONTRACTS = [
     id: "C-2603-03",
     name: "박지민",
     type: "정규 프리랜서",
-    status: "SENT" as ContractStatus,
+    status: "SENT",
     startDate: "2026-04-01",
     endDate: "2026-09-30",
   },
@@ -78,116 +83,71 @@ const MOCK_CONTRACTS = [
     id: "C-2603-04",
     name: "강혜린",
     type: "정규 프리랜서",
-    status: "DRAFT" as ContractStatus,
+    status: "DRAFT",
     startDate: "2026-03-15",
     endDate: "2026-09-14",
   },
 ];
 
 export default function ContractsPage() {
-  const [selectedContract, setSelectedContract] = useState<any>(null); // 상세 패널용
+  const [selectedContract, setSelectedContract] = useState<ContractRow | null>(null);
   const [filterName, setFilterName] = useState("");
   const [filterStatus, setFilterStatus] = useState("전체");
 
-  // 상태별 칩 색상 지정 (전자계약 UX의 핵심!)
-  const getStatusColor = (status: ContractStatus) => {
-    switch (status) {
-      case "FULLY_SIGNED":
-        return "success"; // 초록색 (안전) [cite: 90]
-      case "INSTRUCTOR_SIGNED":
-        return "warning"; // 주황색 (진행중) [cite: 89]
-      case "SENT":
-        return "info"; // 파란색 (대기중) [cite: 88]
-      case "DRAFT":
-        return "default"; // 회색 (시작 전) [cite: 87]
-      case "VOID":
-        return "error"; // 빨간색 (무효)
-      default:
-        return "default";
-    }
-  };
-
   return (
     <Box>
-      {/* 1. 상단 타이틀 및 생성 버튼 */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 4,
-        }}
-      >
-        <Typography variant="h4" fontWeight="bold">
-          계약 관리
-        </Typography>
-        <Button variant="contained" startIcon={<Add />}>
-          새 계약 생성
-        </Button>
-      </Box>
+      <PageHeader
+        title="계약 관리"
+        description="계약 생성, 발송, 서명 진행 상태를 한 흐름으로 확인합니다."
+        action={<AtomButton startIcon={<Add />}>새 계약 생성</AtomButton>}
+      />
 
-      {/* 2. 필터 영역 */}
-      <Paper
-        sx={{
-          p: 3,
-          mb: 3,
-          borderRadius: 3,
-          boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
-        }}
-      >
-        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-          <TextField
-            label="강사명"
-            placeholder="이름 입력"
-            value={filterName}
-            onChange={(e) => setFilterName(e.target.value)}
-            size="small"
-            sx={{ flexGrow: 1 }}
-          />
-          <TextField
-            select
-            label="계약 상태"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            size="small"
-            sx={{ minWidth: 200 }}
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <MenuItem key={opt} value={opt}>
-                {opt}
-              </MenuItem>
-            ))}
-          </TextField>
-          <Button variant="contained" startIcon={<Search />} disableElevation>
-            검색
-          </Button>
-        </Stack>
-      </Paper>
+      <FilterBar>
+        <AtomInput
+          label="강사명"
+          placeholder="이름 입력"
+          value={filterName}
+          onChange={(event) => setFilterName(event.target.value)}
+          size="small"
+          sx={{ flexGrow: 1 }}
+        />
+        <AtomInput
+          select
+          label="계약 상태"
+          value={filterStatus}
+          onChange={(event) => setFilterStatus(event.target.value)}
+          size="small"
+          sx={{ minWidth: 220 }}
+        >
+          {STATUS_OPTIONS.map((option) => (
+            <MenuItem key={option} value={option}>
+              {option}
+            </MenuItem>
+          ))}
+        </AtomInput>
+        <AtomButton startIcon={<Search />}>검색</AtomButton>
+      </FilterBar>
 
-      {/* 3. 리스트 테이블 (기획서 4-1 완벽 반영) [cite: 84, 85] */}
-      <TableContainer
-        component={Paper}
-        sx={{ borderRadius: 3, boxShadow: "0 4px 20px rgba(0,0,0,0.05)" }}
-      >
+      <TableContainer component={SurfaceCard}>
         <Table>
-          <TableHead sx={{ bgcolor: "#f8f9fa" }}>
+          <TableHead sx={{ bgcolor: "#FBF7ED" }}>
             <TableRow>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 강사명
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 계약 유형
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 상태
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 시작일
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 종료일
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 상세
               </TableCell>
             </TableRow>
@@ -195,31 +155,26 @@ export default function ContractsPage() {
           <TableBody>
             {MOCK_CONTRACTS.map((row) => (
               <TableRow key={row.id} hover>
-                <TableCell align="center" sx={{ fontWeight: "medium" }}>
+                <TableCell align="center" sx={{ fontWeight: 600 }}>
                   {row.name}
                 </TableCell>
                 <TableCell align="center">{row.type}</TableCell>
                 <TableCell align="center">
-                  <Chip
+                  <AtomBadge
+                    tone={CONTRACT_TONE_MAP[row.status]}
                     label={CONTRACT_STATUS_MAP[row.status]}
-                    color={getStatusColor(row.status) as any}
-                    size="small"
-                    variant={
-                      row.status === "FULLY_SIGNED" ? "filled" : "outlined"
-                    }
-                    sx={{ fontWeight: "bold" }}
                   />
                 </TableCell>
                 <TableCell align="center">{row.startDate}</TableCell>
                 <TableCell align="center">{row.endDate}</TableCell>
                 <TableCell align="center">
-                  <Button
+                  <AtomButton
+                    atomVariant="outline"
                     size="small"
-                    variant="outlined"
                     onClick={() => setSelectedContract(row)}
                   >
                     보기
-                  </Button>
+                  </AtomButton>
                 </TableCell>
               </TableRow>
             ))}
@@ -227,88 +182,92 @@ export default function ContractsPage() {
         </Table>
       </TableContainer>
 
-      {/* 4. 계약 상세 패널 (기획서 4-3 반영) [cite: 102] */}
-      <Drawer
-        anchor="right"
-        open={!!selectedContract}
-        onClose={() => setSelectedContract(null)}
-      >
+      <Drawer anchor="right" open={Boolean(selectedContract)} onClose={() => setSelectedContract(null)}>
         <Box
           sx={{
-            width: 450,
+            width: 460,
             p: 4,
             display: "flex",
             flexDirection: "column",
             height: "100%",
+            backgroundColor: "#FFF9EF",
           }}
         >
-          <Typography variant="h5" fontWeight="bold" gutterBottom>
+          <Typography variant="h4" sx={{ mb: 0.5 }}>
             계약 상세 정보
           </Typography>
-          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             계약 번호: {selectedContract?.id}
           </Typography>
           <Divider sx={{ mb: 3 }} />
 
-          {/* 서명 상태 및 로그 영역 [cite: 104, 105, 106, 107] */}
-          <Paper sx={{ p: 3, mb: 3, bgcolor: "#f8f9fa", borderRadius: 2 }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+          <SurfaceCard sx={{ p: 3, mb: 3, backgroundColor: "#FFFCF5", boxShadow: "none" }}>
+            <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 2 }}>
               <VerifiedUser
-                color={
-                  selectedContract?.status === "FULLY_SIGNED"
-                    ? "success"
-                    : "disabled"
-                }
+                sx={{
+                  color: selectedContract?.status === "FULLY_SIGNED" ? "#2F6B2F" : "#B7791F",
+                }}
               />
-              <Typography variant="subtitle1" fontWeight="bold">
-                {CONTRACT_STATUS_MAP[selectedContract?.status]}
-              </Typography>
-            </Box>
+              {selectedContract ? (
+                <AtomBadge
+                  tone={CONTRACT_TONE_MAP[selectedContract.status]}
+                  label={CONTRACT_STATUS_MAP[selectedContract.status]}
+                />
+              ) : null}
+            </Stack>
 
             <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="textSecondary">
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="caption" color="text.secondary">
                   서명 시간
                 </Typography>
-                <Typography variant="body2" fontWeight="medium">
-                  {selectedContract?.status === "FULLY_SIGNED"
-                    ? "2026-03-05 14:30"
-                    : "-"}
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {selectedContract?.status === "FULLY_SIGNED" ? "2026-03-05 14:30" : "-"}
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="textSecondary">
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="caption" color="text.secondary">
                   서명 IP
                 </Typography>
-                <Typography variant="body2" fontWeight="medium">
-                  {selectedContract?.status === "FULLY_SIGNED"
-                    ? "192.168.1.104"
-                    : "-"}
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {selectedContract?.status === "FULLY_SIGNED" ? "192.168.1.104" : "-"}
                 </Typography>
               </Grid>
             </Grid>
-          </Paper>
+          </SurfaceCard>
 
-          {/* PDF 미리보기 버튼 [cite: 100, 103] */}
-          <Button
-            variant="outlined"
+          <SurfaceCard sx={{ p: 3, mb: 3 }}>
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle2" color="text.secondary">
+                진행 로그
+              </Typography>
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <HistoryEdu sx={{ color: "#B7791F" }} />
+                <Typography variant="body2">발송 후 열람 완료, 최종 서명 대기</Typography>
+              </Stack>
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <PictureAsPdf sx={{ color: "#7A6A58" }} />
+                <Typography variant="body2">원본 PDF와 전자서명 이력 보관</Typography>
+              </Stack>
+            </Stack>
+          </SurfaceCard>
+
+          <AtomButton
+            atomVariant="outline"
             size="large"
             startIcon={<PictureAsPdf />}
-            sx={{ py: 2, mb: "auto", borderStyle: "dashed", borderWidth: 2 }}
+            sx={{ width: "100%", mb: "auto", borderStyle: "dashed", borderWidth: 2 }}
           >
             계약서 원본 PDF 열람
-          </Button>
+          </AtomButton>
 
-          {/* 하단 액션 버튼 (상태에 따라 다르게 보임) */}
-          <Box sx={{ pt: 3, borderTop: "1px solid #eee" }}>
-            {selectedContract?.status !== "서명완료" && (
-              <Button variant="contained" fullWidth size="large" sx={{ mb: 1 }}>
-                계약서 재발송 (알림톡)
-              </Button>
-            )}
-            <Button variant="text" color="error" fullWidth>
-              계약 파기
-            </Button>
+          <Box sx={{ pt: 3, borderTop: "1px solid #EBDDC3" }}>
+            {selectedContract?.status !== "FULLY_SIGNED" ? (
+              <AtomButton sx={{ width: "100%", mb: 1.25 }}>재발송 및 서명 요청</AtomButton>
+            ) : null}
+            <AtomButton atomVariant="danger" sx={{ width: "100%" }}>
+              계약 종료 처리
+            </AtomButton>
           </Box>
         </Box>
       </Drawer>

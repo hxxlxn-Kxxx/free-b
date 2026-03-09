@@ -1,27 +1,34 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Box,
-  Typography,
-  Button,
-  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
-  Stack,
-  TextField,
 } from "@mui/material";
-import { Add, Search, LocationOn } from "@mui/icons-material";
+import { Add, LocationOn, Search } from "@mui/icons-material";
+
+import FilterBar from "@/src/components/admin/FilterBar";
+import PageHeader from "@/src/components/admin/PageHeader";
+import SurfaceCard from "@/src/components/admin/SurfaceCard";
+import AtomBadge from "@/src/components/atoms/AtomBadge";
+import AtomButton from "@/src/components/atoms/AtomButton";
+import AtomInput from "@/src/components/atoms/AtomInput";
 
 const LOCATION_STATUS_MAP: Record<string, string> = {
   ACTIVE: "운영중",
   INACTIVE: "계약 종료",
   MAINTENANCE: "공사/휴관",
+};
+
+const LOCATION_TONE_MAP: Record<string, string> = {
+  ACTIVE: "confirmed",
+  INACTIVE: "cancelled",
+  MAINTENANCE: "requested",
 };
 
 const MOCK_LOCATIONS = [
@@ -30,7 +37,7 @@ const MOCK_LOCATIONS = [
     locationName: "송파청소년수련관",
     address: "서울시 송파구 중대로 4길",
     contactPerson: "김담당 주임 (02-123-4567)",
-    guideNotionUrl: "https://notion.so/songpa-guide", // 명세서 필드명 강제
+    guideNotionUrl: "https://notion.so/songpa-guide",
     locationStatus: "ACTIVE",
     createdAt: "2025-11-20T00:00:00Z",
   },
@@ -45,69 +52,53 @@ const MOCK_LOCATIONS = [
   },
 ];
 
-const formatUtcToLocalDateOnly = (utcString: string) => {
-  return new Date(utcString).toLocaleDateString("ko-KR");
-};
+const formatUtcToLocalDateOnly = (utcString: string) => new Date(utcString).toLocaleDateString("ko-KR");
 
 export default function LocationManagementPage() {
   const [filterName, setFilterName] = useState("");
 
   return (
     <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 4,
-        }}
-      >
-        <Typography variant="h4" fontWeight="bold">
-          수업지(장소) 관리
-        </Typography>
-        <Button variant="contained" color="secondary" startIcon={<Add />}>
-          새 장소 등록
-        </Button>
-      </Box>
+      <PageHeader
+        title="수업지(장소) 관리"
+        description="장소 정보와 가이드 문서를 같은 구조 안에서 관리합니다."
+        action={<AtomButton startIcon={<Add />}>새 장소 등록</AtomButton>}
+      />
 
-      <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
-        <Stack direction="row" spacing={2}>
-          <TextField
-            label="장소명 또는 주소 검색"
-            size="small"
-            sx={{ flexGrow: 1, maxWidth: 400 }}
-            value={filterName}
-            onChange={(e) => setFilterName(e.target.value)}
-          />
-          <Button variant="contained" disableElevation startIcon={<Search />}>
-            검색
-          </Button>
-        </Stack>
-      </Paper>
+      <FilterBar>
+        <AtomInput
+          label="장소명 또는 주소 검색"
+          size="small"
+          sx={{ flexGrow: 1, maxWidth: 420 }}
+          value={filterName}
+          onChange={(event) => setFilterName(event.target.value)}
+        />
+        <AtomButton startIcon={<Search />}>검색</AtomButton>
+      </FilterBar>
 
-      <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
+      <TableContainer component={SurfaceCard}>
         <Table>
-          <TableHead sx={{ bgcolor: "#f8f9fa" }}>
+          <TableHead sx={{ bgcolor: "#FBF7ED" }}>
             <TableRow>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 장소명
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 주소
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 담당자 연락처
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                강사 가이드 (Notion)
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
+                강사 가이드
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 등록일
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 상태
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 수정
               </TableCell>
             </TableRow>
@@ -115,46 +106,42 @@ export default function LocationManagementPage() {
           <TableBody>
             {MOCK_LOCATIONS.map((row) => (
               <TableRow key={row.locationId} hover>
-                <TableCell align="center" sx={{ fontWeight: "medium" }}>
+                <TableCell align="center" sx={{ fontWeight: 600 }}>
                   <Box
                     sx={{
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: 0.5,
+                      gap: 0.75,
                     }}
                   >
-                    <LocationOn fontSize="small" color="action" />
+                    <LocationOn sx={{ fontSize: 18, color: "#B7791F" }} />
                     {row.locationName}
                   </Box>
                 </TableCell>
                 <TableCell align="center">{row.address}</TableCell>
                 <TableCell align="center">{row.contactPerson}</TableCell>
                 <TableCell align="center">
-                  <Button
+                  <AtomButton
+                    atomVariant="ghost"
                     size="small"
                     href={row.guideNotionUrl}
                     target="_blank"
                   >
                     가이드 보기
-                  </Button>
+                  </AtomButton>
                 </TableCell>
+                <TableCell align="center">{formatUtcToLocalDateOnly(row.createdAt)}</TableCell>
                 <TableCell align="center">
-                  {formatUtcToLocalDateOnly(row.createdAt)}
-                </TableCell>
-                <TableCell align="center">
-                  <Chip
+                  <AtomBadge
+                    tone={LOCATION_TONE_MAP[row.locationStatus]}
                     label={LOCATION_STATUS_MAP[row.locationStatus]}
-                    color={
-                      row.locationStatus === "ACTIVE" ? "success" : "default"
-                    }
-                    size="small"
                   />
                 </TableCell>
                 <TableCell align="center">
-                  <Button size="small" variant="outlined" color="inherit">
+                  <AtomButton atomVariant="outline" size="small">
                     관리
-                  </Button>
+                  </AtomButton>
                 </TableCell>
               </TableRow>
             ))}

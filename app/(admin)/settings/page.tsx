@@ -3,24 +3,23 @@
 import React, { useState } from "react";
 import {
   Box,
-  Typography,
-  Button,
-  Paper,
-  Stack,
-  TextField,
   Divider,
-  Tabs,
-  Tab,
-  Switch,
   FormControlLabel,
   InputAdornment,
+  Stack,
+  Switch,
+  Tab,
+  Tabs,
 } from "@mui/material";
-import { Save, Tune, NotificationsActive, Person } from "@mui/icons-material";
+import { NotificationsActive, Person, Save, Tune } from "@mui/icons-material";
+
+import AtomButton from "@/src/components/atoms/AtomButton";
+import AtomInput from "@/src/components/atoms/AtomInput";
+import PageHeader from "@/src/components/admin/PageHeader";
+import SurfaceCard from "@/src/components/admin/SurfaceCard";
 
 export default function SettingsPage() {
   const [tabIndex, setTabIndex] = useState(0);
-
-  // 알림 설정 State (토글 스위치용)
   const [alerts, setAlerts] = useState({
     lateCheckIn: true,
     contractExpiry: true,
@@ -29,7 +28,7 @@ export default function SettingsPage() {
   });
 
   const handleToggle = (key: keyof typeof alerts) => {
-    setAlerts({ ...alerts, [key]: !alerts[key] });
+    setAlerts((current) => ({ ...current, [key]: !current[key] }));
   };
 
   const handleSave = () => {
@@ -37,101 +36,48 @@ export default function SettingsPage() {
   };
 
   return (
-    <Box sx={{ maxWidth: 800, mx: "auto" }}>
-      {/* 1. 상단 타이틀 */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 4,
-        }}
-      >
-        <Typography variant="h4" fontWeight="bold">
-          환경 설정
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Save />}
-          onClick={handleSave}
-          disableElevation
-        >
-          변경사항 저장
-        </Button>
-      </Box>
+    <Box sx={{ maxWidth: 960 }}>
+      <PageHeader
+        title="환경 설정"
+        description="운영 기준, 알림 정책, 계정 관리 규칙을 한곳에서 조정합니다."
+        action={
+          <AtomButton startIcon={<Save />} onClick={handleSave}>
+            변경사항 저장
+          </AtomButton>
+        }
+      />
 
-      {/* 2. 메인 설정 패널 (탭 구조) */}
-      <Paper
-        sx={{
-          borderRadius: 3,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-          overflow: "hidden",
-        }}
-      >
-        {/* 탭 헤더 */}
-        <Box
-          sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "#f8f9fa" }}
-        >
-          <Tabs
-            value={tabIndex}
-            onChange={(e, newValue) => setTabIndex(newValue)}
-            variant="fullWidth"
-          >
-            <Tab
-              icon={<Tune />}
-              iconPosition="start"
-              label="운영 기본 설정"
-              sx={{ py: 2 }}
-            />
-            <Tab
-              icon={<NotificationsActive />}
-              iconPosition="start"
-              label="알림 설정"
-              sx={{ py: 2 }}
-            />
-            <Tab
-              icon={<Person />}
-              iconPosition="start"
-              label="내 계정 관리"
-              sx={{ py: 2 }}
-            />
+      <SurfaceCard sx={{ overflow: "hidden" }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider", backgroundColor: "#FBF7ED" }}>
+          <Tabs value={tabIndex} onChange={(_, nextValue) => setTabIndex(nextValue)} variant="fullWidth">
+            <Tab icon={<Tune />} iconPosition="start" label="운영 기본 설정" sx={{ py: 2 }} />
+            <Tab icon={<NotificationsActive />} iconPosition="start" label="알림 설정" sx={{ py: 2 }} />
+            <Tab icon={<Person />} iconPosition="start" label="내 계정 관리" sx={{ py: 2 }} />
           </Tabs>
         </Box>
 
-        {/* 탭 콘텐츠 영역 */}
         <Box sx={{ p: 4 }}>
-          {/* 탭 1: 운영 기본 설정 */}
           {tabIndex === 0 && (
             <Stack spacing={4}>
               <Box>
-                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                  강사 정산 및 계약 기준
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="textSecondary"
-                  sx={{ mb: 2 }}
-                >
+                <Box sx={{ fontWeight: 700, mb: 1 }}>강사 정산 및 계약 기준</Box>
+                <Box sx={{ color: "text.secondary", fontSize: 14, lineHeight: 1.6, mb: 2 }}>
                   신규 강사 등록 시 기본으로 세팅되는 금액과 기준을 설정합니다.
-                </Typography>
-                <Stack direction="row" spacing={3}>
-                  <TextField
+                </Box>
+                <Stack direction={{ xs: "column", md: "row" }} spacing={3}>
+                  <AtomInput
                     label="초기 기본 시급"
                     defaultValue="30,000"
                     InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">원</InputAdornment>
-                      ),
+                      endAdornment: <InputAdornment position="end">원</InputAdornment>,
                     }}
                     fullWidth
                   />
-                  <TextField
+                  <AtomInput
                     label="계약 만료 알림 기준"
                     defaultValue="30"
                     InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">일 전</InputAdornment>
-                      ),
+                      endAdornment: <InputAdornment position="end">일 전</InputAdornment>,
                     }}
                     fullWidth
                   />
@@ -141,169 +87,102 @@ export default function SettingsPage() {
               <Divider />
 
               <Box>
-                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                  수업 및 체크인 기준
-                </Typography>
-                <Stack direction="row" spacing={3} sx={{ mt: 2 }}>
-                  <TextField
+                <Box sx={{ fontWeight: 700, mb: 2 }}>수업 및 체크인 기준</Box>
+                <Stack direction={{ xs: "column", md: "row" }} spacing={3}>
+                  <AtomInput
                     label="도착 체크인 허용 반경"
                     defaultValue="50"
                     InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">m (미터)</InputAdornment>
-                      ),
+                      endAdornment: <InputAdornment position="end">m (미터)</InputAdornment>,
                     }}
                     fullWidth
                   />
-                  <TextField
-                    label="지각 처리 기준"
-                    defaultValue="수업 시작 10분 전"
-                    fullWidth
-                  />
+                  <AtomInput label="지각 처리 기준" defaultValue="수업 시작 10분 전" fullWidth />
                 </Stack>
               </Box>
             </Stack>
           )}
 
-          {/* 탭 2: 알림 설정 */}
           {tabIndex === 1 && (
             <Stack spacing={2}>
-              <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
-                시스템 알림 (Push / Dashboard)
-              </Typography>
+              <Box sx={{ fontWeight: 700, mb: 1 }}>시스템 알림 (Push / Dashboard)</Box>
 
-              <Paper
-                variant="outlined"
-                sx={{
-                  p: 2,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <Box>
-                  <Typography fontWeight="medium">
-                    강사 현장 체크인 지각 알림
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    수업 시작 전까지 체크인하지 않은 경우 경고를 띄웁니다.
-                  </Typography>
-                </Box>
-                <Switch
-                  checked={alerts.lateCheckIn}
-                  onChange={() => handleToggle("lateCheckIn")}
-                  color="primary"
-                />
-              </Paper>
-
-              <Paper
-                variant="outlined"
-                sx={{
-                  p: 2,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <Box>
-                  <Typography fontWeight="medium">
-                    전자계약 만료 임박 알림
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    강사의 계약 종료일이 다가오면 대시보드에 표시합니다.
-                  </Typography>
-                </Box>
-                <Switch
-                  checked={alerts.contractExpiry}
-                  onChange={() => handleToggle("contractExpiry")}
-                  color="primary"
-                />
-              </Paper>
-
-              <Paper
-                variant="outlined"
-                sx={{
-                  p: 2,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <Box>
-                  <Typography fontWeight="medium">
-                    강사의 대강(대체강사) 요청 알림
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    강사가 앱에서 긴급 대강을 요청했을 때 알림을 받습니다.
-                  </Typography>
-                </Box>
-                <Switch
-                  checked={alerts.newClassRequest}
-                  onChange={() => handleToggle("newClassRequest")}
-                  color="primary"
-                />
-              </Paper>
+              {[
+                {
+                  key: "lateCheckIn",
+                  title: "강사 현장 체크인 지각 알림",
+                  description: "수업 시작 전까지 체크인하지 않은 경우 경고를 띄웁니다.",
+                },
+                {
+                  key: "contractExpiry",
+                  title: "전자계약 만료 임박 알림",
+                  description: "강사의 계약 종료일이 다가오면 대시보드에 표시합니다.",
+                },
+                {
+                  key: "newClassRequest",
+                  title: "강사의 대강(대체강사) 요청 알림",
+                  description: "강사가 앱에서 긴급 대강을 요청했을 때 알림을 받습니다.",
+                },
+                {
+                  key: "systemError",
+                  title: "시스템 오류 보고 알림",
+                  description: "백엔드 장애 또는 서명 오류가 발생했을 때 관리자에게 전달합니다.",
+                },
+              ].map((item) => (
+                <SurfaceCard
+                  key={item.key}
+                  sx={{
+                    p: 2,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    boxShadow: "none",
+                  }}
+                >
+                  <Box>
+                    <Box sx={{ fontWeight: 600 }}>{item.title}</Box>
+                    <Box sx={{ fontSize: 14, color: "text.secondary", mt: 0.5 }}>
+                      {item.description}
+                    </Box>
+                  </Box>
+                  <Switch
+                    checked={alerts[item.key as keyof typeof alerts]}
+                    onChange={() => handleToggle(item.key as keyof typeof alerts)}
+                    color="primary"
+                  />
+                </SurfaceCard>
+              ))}
             </Stack>
           )}
 
-          {/* 탭 3: 내 계정 관리 */}
           {tabIndex === 2 && (
             <Stack spacing={4}>
               <Box>
-                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                  관리자 프로필
-                </Typography>
-                <Stack direction="row" spacing={3} sx={{ mt: 2 }}>
-                  <TextField
-                    label="이름"
-                    defaultValue="최고 관리자"
-                    fullWidth
-                  />
-                  <TextField
-                    label="이메일 주소"
-                    defaultValue="admin@settly.com"
-                    fullWidth
-                  />
+                <Box sx={{ fontWeight: 700, mb: 1 }}>관리자 프로필</Box>
+                <Stack direction={{ xs: "column", md: "row" }} spacing={3} sx={{ mt: 2 }}>
+                  <AtomInput label="이름" defaultValue="최고 관리자" fullWidth />
+                  <AtomInput label="이메일 주소" defaultValue="admin@settly.com" fullWidth />
                 </Stack>
               </Box>
 
               <Divider />
 
               <Box>
-                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                  보안 설정
-                </Typography>
-                <Stack spacing={2} sx={{ mt: 2, maxWidth: 400 }}>
-                  <TextField
-                    label="현재 비밀번호"
-                    type="password"
-                    size="small"
-                    fullWidth
-                  />
-                  <TextField
-                    label="새 비밀번호"
-                    type="password"
-                    size="small"
-                    fullWidth
-                  />
-                  <TextField
-                    label="새 비밀번호 확인"
-                    type="password"
-                    size="small"
-                    fullWidth
-                  />
-                  <Button
-                    variant="outlined"
-                    sx={{ mt: 1, alignSelf: "flex-start" }}
-                  >
+                <Box sx={{ fontWeight: 700, mb: 2 }}>보안 설정</Box>
+                <Stack spacing={2} sx={{ maxWidth: 480 }}>
+                  <AtomInput label="현재 비밀번호" type="password" size="small" fullWidth />
+                  <AtomInput label="새 비밀번호" type="password" size="small" fullWidth />
+                  <AtomInput label="새 비밀번호 확인" type="password" size="small" fullWidth />
+                  <FormControlLabel control={<Switch defaultChecked />} label="2단계 인증 활성화" />
+                  <AtomButton atomVariant="outline" sx={{ alignSelf: "flex-start" }}>
                     비밀번호 변경
-                  </Button>
+                  </AtomButton>
                 </Stack>
               </Box>
             </Stack>
           )}
         </Box>
-      </Paper>
+      </SurfaceCard>
     </Box>
   );
 }

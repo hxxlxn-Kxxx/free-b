@@ -3,40 +3,33 @@
 import React, { useState } from "react";
 import {
   Box,
-  Typography,
-  Button,
-  Paper,
-  Stack,
-  TextField,
+  Divider,
+  Drawer,
+  IconButton,
   MenuItem,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
-  Drawer,
-  Divider,
-  IconButton,
+  Typography,
 } from "@mui/material";
 import {
-  Search,
+  CalendarMonth,
   ChevronLeft,
   ChevronRight,
-  CalendarMonth,
-  School,
+  Search,
 } from "@mui/icons-material";
 
-// 백엔드 기준 ContractStatus (참고)
-type ContractStatus =
-  | "DRAFT"
-  | "SENT"
-  | "INSTRUCTOR_SIGNED"
-  | "FULLY_SIGNED"
-  | "VOID";
+import AtomButton from "@/src/components/atoms/AtomButton";
+import AtomInput from "@/src/components/atoms/AtomInput";
+import FilterBar from "@/src/components/admin/FilterBar";
+import PageHeader from "@/src/components/admin/PageHeader";
+import StatusBadge from "@/src/components/admin/StatusBadge";
+import SurfaceCard from "@/src/components/admin/SurfaceCard";
 
-// NOTE: 프론트 로컬 상태 (실제 ContractStatus enum과 별개)
 const CONTRACT_STATUS = ["전체", "서명완료", "계약대기", "만료임박"];
 
 const MOCK_OPERATIONS = [
@@ -71,13 +64,12 @@ const MOCK_OPERATIONS = [
     classCount: 12,
     hours: 24,
     status: "서명완료",
-  }, // 에이스 강사 추가!
+  },
 ];
 
 export default function InstructorListPage() {
-  const [selectedInstructor, setSelectedInstructor] = useState<any>(null);
-
-  const [currentMonth, setCurrentMonth] = useState("2026-03");
+  const [selectedInstructor, setSelectedInstructor] = useState<(typeof MOCK_OPERATIONS)[number] | null>(null);
+  const currentMonth = "2026-03";
   const [filterName, setFilterName] = useState("");
   const [filterStatus, setFilterStatus] = useState("전체");
 
@@ -86,234 +78,177 @@ export default function InstructorListPage() {
     alert(`${currentMonth}월 데이터 검색이 실행되었습니다!`);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "서명완료":
-        return "success";
-      case "만료임박":
-        return "warning";
-      case "계약대기":
-        return "error";
-      default:
-        return "default";
-    }
-  };
-
   return (
     <Box>
-      {/* 1. 상단 타이틀 및 월 선택 컨트롤 */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 4,
-        }}
-      >
-        <Typography variant="h4" fontWeight="bold">
-          강사 운영 리스트
-        </Typography>
+      <PageHeader
+        title="강사 운영 리스트"
+        description="계약 상태와 월별 가동률을 기준으로 강사 운영 현황을 빠르게 훑습니다."
+        action={
+          <SurfaceCard sx={{ px: 1, py: 0.75, borderRadius: 999 }}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <IconButton size="small">
+                <ChevronLeft />
+              </IconButton>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 1 }}>
+                <CalendarMonth fontSize="small" color="action" />
+                <Box component="span" sx={{ fontWeight: 700 }}>
+                  2026년 3월
+                </Box>
+              </Stack>
+              <IconButton size="small">
+                <ChevronRight />
+              </IconButton>
+            </Stack>
+          </SurfaceCard>
+        }
+      />
 
-        <Paper
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            px: 2,
-            py: 0.5,
-            borderRadius: 5,
-            border: "1px solid #eee",
-            boxShadow: "none",
-          }}
+      <FilterBar>
+        <AtomInput
+          label="강사명"
+          placeholder="이름 입력"
+          value={filterName}
+          onChange={(e) => setFilterName(e.target.value)}
+          size="small"
+          sx={{ flexGrow: 1 }}
+        />
+        <AtomInput
+          select
+          label="계약 상태"
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          size="small"
+          sx={{ minWidth: { xs: "100%", lg: 220 } }}
         >
-          <IconButton size="small">
-            <ChevronLeft />
-          </IconButton>
-          <Typography
-            variant="subtitle1"
-            fontWeight="bold"
-            sx={{ mx: 2, display: "flex", alignItems: "center", gap: 1 }}
-          >
-            <CalendarMonth fontSize="small" color="action" />
-            2026년 3월
-          </Typography>
-          <IconButton size="small">
-            <ChevronRight />
-          </IconButton>
-        </Paper>
-      </Box>
+          {CONTRACT_STATUS.map((opt) => (
+            <MenuItem key={opt} value={opt}>
+              {opt}
+            </MenuItem>
+          ))}
+        </AtomInput>
+        <AtomButton
+          startIcon={<Search />}
+          onClick={handleSearch}
+          sx={{ minWidth: { xs: "100%", lg: 132 } }}
+        >
+          검색
+        </AtomButton>
+      </FilterBar>
 
-      {/* 2. 필터 영역 */}
-      <Paper
-        sx={{
-          p: 3,
-          mb: 3,
-          borderRadius: 3,
-          boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
-        }}
-      >
-        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-          <TextField
-            label="강사명"
-            placeholder="이름 입력"
-            value={filterName}
-            onChange={(e) => setFilterName(e.target.value)}
-            size="small"
-            sx={{ flexGrow: 1 }}
-          />
-          <TextField
-            select
-            label="계약 상태"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            size="small"
-            sx={{ minWidth: 200 }}
-          >
-            {CONTRACT_STATUS.map((opt) => (
-              <MenuItem key={opt} value={opt}>
-                {opt}
-              </MenuItem>
-            ))}
-          </TextField>
-          <Button
-            variant="contained"
-            startIcon={<Search />}
-            onClick={handleSearch}
-            disableElevation
-          >
-            검색
-          </Button>
-        </Stack>
-      </Paper>
-
-      {/* 3. 리스트 테이블 (금액 제거, 출강 횟수 강조) */}
-      <TableContainer
-        component={Paper}
-        sx={{ borderRadius: 3, boxShadow: "0 4px 20px rgba(0,0,0,0.05)" }}
-      >
-        <Table>
-          <TableHead sx={{ bgcolor: "#f8f9fa" }}>
-            <TableRow>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                이름
-              </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                연락처
-              </TableCell>
-              {/* 💡 핵심 데이터: 출강 횟수와 근무시간을 나란히 배치하여 가동률 파악 */}
-              <TableCell
-                align="center"
-                sx={{ fontWeight: "bold", color: "#1976d2" }}
-              >
-                이번달 출강 횟수
-              </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                이번달 근무시간
-              </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                계약 상태
-              </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                스케줄
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {MOCK_OPERATIONS.map((row) => (
-              <TableRow key={row.id} hover>
-                <TableCell align="center" sx={{ fontWeight: "medium" }}>
-                  {row.name}
+      <SurfaceCard sx={{ overflow: "hidden" }}>
+        <TableContainer component="div">
+          <Table>
+            <TableHead sx={{ backgroundColor: "#FBF7ED" }}>
+              <TableRow>
+                <TableCell align="center" sx={{ fontWeight: "bold" }}>
+                  이름
                 </TableCell>
-                <TableCell align="center">{row.phone}</TableCell>
-                {/* 💡 출강 횟수 뱃지 강조 */}
-                <TableCell align="center">
-                  <Chip
-                    icon={<School />}
-                    label={`${row.classCount}회`}
-                    color={row.classCount > 0 ? "primary" : "default"}
-                    variant={row.classCount > 0 ? "filled" : "outlined"}
-                    size="small"
-                    sx={{ fontWeight: "bold", px: 1 }}
-                  />
+                <TableCell align="center" sx={{ fontWeight: "bold" }}>
+                  연락처
                 </TableCell>
-                <TableCell align="center">{row.hours}시간</TableCell>
-                <TableCell align="center">
-                  <Chip
-                    label={row.status}
-                    color={getStatusColor(row.status) as any}
-                    size="small"
-                    variant="outlined"
-                  />
+                <TableCell align="center" sx={{ fontWeight: "bold", color: "primary.dark" }}>
+                  이번달 출강 횟수
                 </TableCell>
-                <TableCell align="center">
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => setSelectedInstructor(row)}
-                  >
-                    일정 보기
-                  </Button>
+                <TableCell align="center" sx={{ fontWeight: "bold" }}>
+                  이번달 근무시간
+                </TableCell>
+                <TableCell align="center" sx={{ fontWeight: "bold" }}>
+                  계약 상태
+                </TableCell>
+                <TableCell align="center" sx={{ fontWeight: "bold" }}>
+                  스케줄
                 </TableCell>
               </TableRow>
+            </TableHead>
+            <TableBody>
+              {MOCK_OPERATIONS.map((row) => (
+                <TableRow
+                  key={row.id}
+                  hover
+                  sx={{
+                    "& td": {
+                      borderColor: "divider",
+                    },
+                  }}
+                >
+                  <TableCell align="center" sx={{ fontWeight: 700 }}>
+                    {row.name}
+                  </TableCell>
+                  <TableCell align="center">{row.phone}</TableCell>
+                  <TableCell align="center">
+                    <Box
+                      sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        px: 1.5,
+                        py: 0.8,
+                        borderRadius: 999,
+                        backgroundColor: row.classCount > 0 ? "#6C63FF" : "#F0E8DA",
+                        color: row.classCount > 0 ? "#FFFFFF" : "#5F5445",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {row.classCount}회
+                    </Box>
+                  </TableCell>
+                  <TableCell align="center">{row.hours}시간</TableCell>
+                  <TableCell align="center">
+                    <StatusBadge status={row.status} />
+                  </TableCell>
+                  <TableCell align="center">
+                    <AtomButton atomVariant="outline" onClick={() => setSelectedInstructor(row)}>
+                      일정 보기
+                    </AtomButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </SurfaceCard>
+
+      <Drawer anchor="right" open={Boolean(selectedInstructor)} onClose={() => setSelectedInstructor(null)}>
+        <Box sx={{ width: 420, p: 4, backgroundColor: "background.default", height: "100%" }}>
+          <Typography variant="h5" sx={{ mb: 1 }}>
+            {selectedInstructor?.name} 강사
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            이번 달 배정된 수업과 계약 상태를 우측 패널에서 빠르게 점검합니다.
+          </Typography>
+
+          <SurfaceCard sx={{ p: 3, mb: 3 }}>
+            <Stack direction="row" spacing={3} divider={<Divider orientation="vertical" flexItem />}>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  총 출강 횟수
+                </Typography>
+                <Typography variant="h4" sx={{ mt: 1 }}>
+                  {selectedInstructor?.classCount ?? 0}회
+                </Typography>
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  총 근무 시간
+                </Typography>
+                <Typography variant="h4" sx={{ mt: 1 }}>
+                  {selectedInstructor?.hours ?? 0}시간
+                </Typography>
+              </Box>
+            </Stack>
+          </SurfaceCard>
+
+          <Stack spacing={2}>
+            {["국립중앙박물관", "용산 역사관", "분당 수업지"].map((location, index) => (
+              <SurfaceCard key={location} sx={{ p: 2.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                  {location}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  3월 {index + 9}일 · 14:00 - 16:00
+                </Typography>
+              </SurfaceCard>
             ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* 4. 이번 달 스케줄 요약 패널 */}
-      <Drawer
-        anchor="right"
-        open={!!selectedInstructor}
-        onClose={() => setSelectedInstructor(null)}
-      >
-        <Box sx={{ width: 400, p: 4 }}>
-          <Typography variant="h6" fontWeight="bold" gutterBottom>
-            {selectedInstructor?.name} 강사 - 이번 달 일정
-          </Typography>
-          <Divider sx={{ my: 2 }} />
-
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              mb: 3,
-              bgcolor: "#f0f7ff",
-              textAlign: "center",
-              display: "flex",
-              justifyContent: "space-around",
-            }}
-          >
-            <Box>
-              <Typography variant="body2" color="textSecondary">
-                총 출강 횟수
-              </Typography>
-              <Typography
-                variant="h5"
-                fontWeight="bold"
-                color="primary"
-                sx={{ mt: 1 }}
-              >
-                {selectedInstructor?.classCount}회
-              </Typography>
-            </Box>
-            <Divider orientation="vertical" flexItem />
-            <Box>
-              <Typography variant="body2" color="textSecondary">
-                총 근무 시간
-              </Typography>
-              <Typography
-                variant="h5"
-                fontWeight="bold"
-                color="primary"
-                sx={{ mt: 1 }}
-              >
-                {selectedInstructor?.hours}시간
-              </Typography>
-            </Box>
-          </Paper>
-
-          <Typography variant="subtitle2" color="textSecondary" sx={{ mb: 1 }}>
-            진행 완료 및 예정된 수업 리스트가 여기에 표시됩니다.
-          </Typography>
+          </Stack>
         </Box>
       </Drawer>
     </Box>
