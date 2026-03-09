@@ -22,6 +22,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Drawer,
+  TextField,
+  InputAdornment,
 } from "@mui/material";
 import {
   ArrowBack,
@@ -31,6 +34,8 @@ import {
   AttachMoney,
   People,
   Description,
+  Edit,
+  Block,
 } from "@mui/icons-material";
 
 const CLASS_STATUS_MAP: Record<string, string> = {
@@ -38,13 +43,20 @@ const CLASS_STATUS_MAP: Record<string, string> = {
   PENDING: "강사 대기",
   IN_PROGRESS: "수업 진행중",
   COMPLETED: "수업 완료",
-  CANCELED: "취소됨",
+  CANCELLED: "취소됨",
 };
 
 const formatUtcToLocal = (utcString: string) => {
   if (!utcString) return "-";
   const d = new Date(utcString);
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
+};
+
+const formatForInput = (utcString: string) => {
+  if (!utcString) return "";
+  const d = new Date(utcString);
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().slice(0, 16);
 };
 
 export default function ClassDetailPage() {
@@ -60,6 +72,23 @@ export default function ClassDetailPage() {
   const [isFetchingInstructors, setIsFetchingInstructors] = useState(false);
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
   const [isAssigning, setIsAssigning] = useState(false);
+
+  const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
+
+  const [editFormData, setEditFormData] = useState({
+    lectureTitle: "",
+    startsAt: "",
+    endsAt: "",
+    payAmount: "",
+    studentCount: "",
+    region: "",
+    museum: "",
+    guideNotionUrl: "",
+    lessonDetails: "",
+    deliveryNotes: "",
+  });
 
   const fetchLessonDetail = async () => {
     try {
@@ -150,6 +179,87 @@ export default function ClassDetailPage() {
     }
   };
 
+  const handleCancelLesson = async () => {
+    if (!window.confirm("정말 이 수업을 취소하시겠습니까?")) return;
+
+    setIsCanceling(true);
+    try {
+      const token = localStorage.getItem("accessToken");
+      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+      const response = await fetch(`${apiUrl}/lessons/${id}/cancel`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) throw new Error("수업 취소 처리에 실패했습니다.");
+
+      alert("수업이 취소되었습니다.");
+      fetchLessonDetail();
+    } catch (err: any) {
+      alert(`취소 실패: ${err.message}`);
+    } finally {
+      setIsCanceling(false);
+    }
+  };
+
+  const handleOpenEdit = () => {
+    setEditFormData({
+      lectureTitle: lesson.lectureTitle || "",
+      startsAt: formatForInput(lesson.startsAt),
+      endsAt: formatForInput(lesson.endsAt),
+      payAmount: lesson.payAmount || "",
+      studentCount: lesson.studentCount || "",
+      region: lesson.region || "",
+      museum: lesson.museum || "",
+      guideNotionUrl: lesson.guideNotionUrl || "",
+      lessonDetails: lesson.lessonDetails || "",
+      deliveryNotes: lesson.deliveryNotes || "",
+    });
+    setIsEditDrawerOpen(true);
+  };
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEditFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleUpdateLesson = async () => {
+    if (new Date(editFormData.startsAt) >= new Date(editFormData.endsAt)) {
+      return alert("종료 시간이 시작 시간보다 빠를 수 없습니다.");
+    }
+    setIsUpdating(true);
+    try {
+      const token = localStorage.getItem("accessToken");
+      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+      const payload = {
+        ...editFormData,
+        payAmount: Number(editFormData.payAmount),
+        studentCount: Number(editFormData.studentCount),
+        startsAt: new Date(editFormData.startsAt).toISOString(),
+        endsAt: new Date(editFormData.endsAt).toISOString(),
+      };
+
+      const response = await fetch(`${apiUrl}/lessons/${id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) throw new Error("수업 수정에 실패했습니다.");
+
+      alert("정보가 수정되었습니다.");
+      setIsEditDrawerOpen(false);
+      fetchLessonDetail();
+    } catch (err: any) {
+      alert(`수정 실패: ${err.message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Box
@@ -181,6 +291,8 @@ export default function ClassDetailPage() {
       </Box>
     );
   }
+  const isCanceled =
+    lesson.classStatus === "CANCELLED" || lesson.status === "CANCELLED";
 
   return (
     <Box sx={{ maxWidth: 900, mx: "auto" }}>
@@ -196,6 +308,27 @@ export default function ClassDetailPage() {
         <Typography variant="h5" fontWeight="bold" sx={{ flexGrow: 1 }}>
           수업 상세 정보
         </Typography>
+        {!isCanceled && (
+          <Stack direction="row" spacing={1} sx={{ mr: 2 }}>
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<Edit />}
+              onClick={handleOpenEdit}
+            >
+              수정
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<Block />}
+              onClick={handleCancelLesson}
+              disabled={isCanceling}
+            >
+              {isCanceling ? "취소 중..." : "취소"}
+            </Button>
+          </Stack>
+        )}
         <Chip
           label={
             CLASS_STATUS_MAP[lesson.classStatus || lesson.status] ||
@@ -387,6 +520,174 @@ export default function ClassDetailPage() {
           {lesson.deliveryNotes || "등록된 전달 사항이 없습니다."}
         </Box>
       </Paper>
+      <Drawer
+        anchor="right"
+        open={isEditDrawerOpen}
+        onClose={() => setIsEditDrawerOpen(false)}
+      >
+        <Box
+          sx={{
+            width: 500,
+            display: "flex",
+            flexDirection: "column",
+            height: "100%",
+          }}
+        >
+          <Box sx={{ p: 3, bgcolor: "#1976d2", color: "white" }}>
+            <Typography variant="h6" fontWeight="bold">
+              수업 정보 수정
+            </Typography>
+          </Box>
+          <Divider />
+          <Box sx={{ p: 4, flexGrow: 1, overflowY: "auto" }}>
+            <Grid container spacing={3}>
+              {/* 수정 폼 필드들 */}
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  label="수업명"
+                  name="lectureTitle"
+                  value={editFormData.lectureTitle}
+                  onChange={handleEditChange}
+                  fullWidth
+                  required
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <TextField
+                  type="datetime-local"
+                  label="시작 일시"
+                  name="startsAt"
+                  value={editFormData.startsAt}
+                  onChange={handleEditChange}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                  required
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <TextField
+                  type="datetime-local"
+                  label="종료 일시"
+                  name="endsAt"
+                  value={editFormData.endsAt}
+                  onChange={handleEditChange}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                  required
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <TextField
+                  type="number"
+                  label="지급액"
+                  name="payAmount"
+                  value={editFormData.payAmount}
+                  onChange={handleEditChange}
+                  fullWidth
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">원</InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <TextField
+                  type="number"
+                  label="학생 수"
+                  name="studentCount"
+                  value={editFormData.studentCount}
+                  onChange={handleEditChange}
+                  fullWidth
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">명</InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <TextField
+                  label="지역"
+                  name="region"
+                  value={editFormData.region}
+                  onChange={handleEditChange}
+                  fullWidth
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <TextField
+                  label="박물관/장소"
+                  name="museum"
+                  value={editFormData.museum}
+                  onChange={handleEditChange}
+                  fullWidth
+                />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  type="url"
+                  label="가이드 노션 링크"
+                  name="guideNotionUrl"
+                  value={editFormData.guideNotionUrl}
+                  onChange={handleEditChange}
+                  fullWidth
+                />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  label="수업 상세 내용"
+                  name="lessonDetails"
+                  value={editFormData.lessonDetails}
+                  onChange={handleEditChange}
+                  fullWidth
+                  multiline
+                  rows={3}
+                />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  label="전달 사항"
+                  name="deliveryNotes"
+                  value={editFormData.deliveryNotes}
+                  onChange={handleEditChange}
+                  fullWidth
+                  multiline
+                  rows={2}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+          <Box
+            sx={{
+              p: 3,
+              borderTop: "1px solid #eee",
+              bgcolor: "#f8f9fa",
+              display: "flex",
+              gap: 2,
+            }}
+          >
+            <Button
+              variant="outlined"
+              color="inherit"
+              fullWidth
+              onClick={() => setIsEditDrawerOpen(false)}
+              disabled={isUpdating}
+            >
+              취소
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              onClick={handleUpdateLesson}
+              disabled={isUpdating}
+            >
+              {isUpdating ? "수정 중..." : "수정 완료"}
+            </Button>
+          </Box>
+        </Box>
+      </Drawer>
       <Dialog
         open={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}

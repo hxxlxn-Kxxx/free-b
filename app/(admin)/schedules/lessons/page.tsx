@@ -30,29 +30,8 @@ const CLASS_STATUS_MAP: Record<string, string> = {
   PENDING: "강사 대기",
   IN_PROGRESS: "수업 진행중",
   COMPLETED: "수업 완료",
-  CANCELED: "취소됨",
+  CANCELLED: "취소",
 };
-
-const MOCK_CLASSES = [
-  {
-    classId: "CLS_1001",
-    lectureTitle: "[초등] 역사 탐험대 1기",
-    locationName: "송파청소년수련관",
-    instructorName: "김철수",
-    startsAt: "2026-03-10T05:00:00Z",
-    endsAt: "2026-03-10T07:00:00Z",
-    classStatus: "SCHEDULED",
-  },
-  {
-    classId: "CLS_1002",
-    lectureTitle: "[중등] 근현대사 바로알기",
-    locationName: "마포평생학습관",
-    instructorName: "-",
-    startsAt: "2026-03-12T01:00:00Z",
-    endsAt: "2026-03-12T03:00:00Z",
-    classStatus: "PENDING",
-  },
-];
 
 const formatUtcToLocal = (utcString: string) => {
   const d = new Date(utcString);
@@ -97,6 +76,9 @@ export default function ClassManagementPage() {
       setIsLoadingList(false);
     }
   };
+  useEffect(() => {
+    fetchLessons();
+  }, [filterStatus]);
 
   const [formData, setFormData] = useState({
     lectureTitle: "",
