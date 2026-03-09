@@ -1,25 +1,24 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Stepper,
-  Step,
-  StepLabel,
   Box,
-  Typography,
-  TextField,
-  Chip,
-  Stack,
-  MenuItem,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
+  MenuItem,
+  Stack,
   Tooltip,
+  Typography,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+
+import SurfaceCard from "@/src/components/admin/SurfaceCard";
+import AtomBadge from "@/src/components/atoms/AtomBadge";
+import AtomButton from "@/src/components/atoms/AtomButton";
+import AtomInput from "@/src/components/atoms/AtomInput";
 
 interface AssignmentModalProps {
   open: boolean;
@@ -28,361 +27,336 @@ interface AssignmentModalProps {
 
 const steps = ["날짜/시간", "장소 및 지도안", "강사 배정"];
 
-// 로컬 시간을 UTC ISO 8601으로 변환
 const convertToUTCISO8601 = (date: string, time: string): string => {
   if (!date || !time) return "";
-  // date: "2026-03-05", time: "09:00" -> "2026-03-05T09:00:00Z"
   return `${date}T${time}:00Z`;
 };
 
-const START_HOUR = 8;
-const END_HOUR = 22;
-
-const START_TIME_OPTIONS = Array.from({ length: (22 - 8) * 2 + 1 }, (_, i) => {
-  const hours = 8 + Math.floor(i / 2);
-  const minutes = i % 2 === 0 ? "00" : "30";
+const START_TIME_OPTIONS = Array.from({ length: (22 - 8) * 2 + 1 }, (_, index) => {
+  const hours = 8 + Math.floor(index / 2);
+  const minutes = index % 2 === 0 ? "00" : "30";
   return `${hours.toString().padStart(2, "0")}:${minutes}`;
 });
 
-const END_TIME_OPTIONS = Array.from({ length: (24 - 8) * 2 + 1 }, (_, i) => {
-  const hours = 8 + Math.floor(i / 2);
-  const minutes = i % 2 === 0 ? "00" : "30";
+const END_TIME_OPTIONS = Array.from({ length: (24 - 8) * 2 + 1 }, (_, index) => {
+  const hours = 8 + Math.floor(index / 2);
+  const minutes = index % 2 === 0 ? "00" : "30";
   return `${hours.toString().padStart(2, "0")}:${minutes}`;
 });
 
-export default function AssignmentModal({
-  open,
-  onClose,
-}: AssignmentModalProps) {
+const suggestedLocations = ["국립중앙박물관", "국립경주박물관"];
+
+const mockInstructors = [
+  {
+    id: "inst_1",
+    name: "강혜린",
+    status: "가용확인 완료",
+    match: "98%",
+    tone: "confirmed",
+  },
+  {
+    id: "inst_2",
+    name: "김용관",
+    status: "스케줄 확인 필요",
+    match: "85%",
+    tone: "requested",
+  },
+  {
+    id: "inst_3",
+    name: "박지혁",
+    status: "긴급 대강 가능",
+    match: "70%",
+    tone: "sent",
+  },
+];
+
+export default function AssignmentModal({ open, onClose }: AssignmentModalProps) {
   const [activeStep, setActiveStep] = useState(0);
-
-  const [lessonDate, setLessonDate] = useState(""); // 수업 날짜
+  const [lessonDate, setLessonDate] = useState("");
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("11:00");
-
   const [location, setLocation] = useState("");
+  const [guideUrl, setGuideUrl] = useState("");
   const [selectedInstructor, setSelectedInstructor] = useState("");
 
-  const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newStart = e.target.value;
-    setStartTime(newStart);
+  const handleStartTimeChange = (value: string) => {
+    setStartTime(value);
 
-    if (newStart) {
-      const [hourStr, minuteStr] = newStart.split(":");
-      let hour = (parseInt(hourStr, 10) + 2) % 24;
-
-      const formattedHour = hour.toString().padStart(2, "0");
-      setEndTime(`${formattedHour}:${minuteStr}`);
-    } else {
+    if (!value) {
       setEndTime("");
+      return;
     }
+
+    const [hourString, minuteString] = value.split(":");
+    const nextHour = (parseInt(hourString, 10) + 2) % 24;
+    setEndTime(`${nextHour.toString().padStart(2, "0")}:${minuteString}`);
   };
 
-  const handleNext = () => setActiveStep((prev) => prev + 1);
-  const handleBack = () => setActiveStep((prev) => prev - 1);
-
-  const handleCloseModal = () => {
+  const resetState = () => {
     setActiveStep(0);
     setLessonDate("");
     setStartTime("09:00");
     setEndTime("11:00");
     setLocation("");
+    setGuideUrl("");
     setSelectedInstructor("");
+  };
+
+  const handleCloseModal = () => {
+    resetState();
     onClose();
   };
 
   const handleCreateLesson = () => {
-    // 수업 생성 로직 (백엔드 연동 시 API 호출)
     const lessonData = {
       startsAt: convertToUTCISO8601(lessonDate, startTime),
       endsAt: convertToUTCISO8601(lessonDate, endTime),
-      location: location,
+      location,
+      guideUrl,
       instructorId: selectedInstructor,
     };
+
     console.log("수업 생성 데이터 (UTC ISO 8601):", lessonData);
-    // TODO: API 호출 후 handleCloseModal() 실행
     handleCloseModal();
   };
 
-  const renderStepContent = (step: number) => {
-    switch (step) {
-      case 0: // 1단계: 날짜/시간
+  const renderStepPills = () => (
+    <Stack direction="row" spacing={1.25} sx={{ mb: 4, flexWrap: "wrap" }}>
+      {steps.map((label, index) => {
+        const isActive = index === activeStep;
+        const isCompleted = index < activeStep;
+
         return (
-          <Box sx={{ mt: 2 }}>
-            <Typography
-              variant="subtitle2"
-              color="textSecondary"
-              sx={{ mb: 2 }}
-            >
-              수업 일정을 선택해주세요.
-            </Typography>
-            <Stack spacing={3}>
-              <TextField
-                type="date"
-                label="날짜"
-                InputLabelProps={{ shrink: true }}
-                value={lessonDate}
-                onChange={(e) => setLessonDate(e.target.value)}
-                fullWidth
-                required
-              />
-              <Stack direction="row" spacing={2}>
-                <TextField
-                  select
-                  label="시작시간"
-                  value={startTime}
-                  onChange={handleStartTimeChange}
-                  InputLabelProps={{ shrink: true }}
-                  fullWidth
-                  required
-                >
-                  {START_TIME_OPTIONS.map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  select
-                  label="종료시간"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  fullWidth
-                  required
-                >
-                  {END_TIME_OPTIONS.map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option === "24:00" ? "24:00 (자정)" : option}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Stack>
-              {/* UTC 변환 미리보기 */}
-              {lessonDate && startTime && endTime && (
-                <Box sx={{ p: 2, bgcolor: "#f0f7ff", borderRadius: 1 }}>
-                  <Typography variant="caption" color="primary">
-                    UTC ISO 8601 형식:
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{ fontFamily: "monospace", mt: 1 }}
-                  >
-                    시작: {convertToUTCISO8601(lessonDate, startTime)}
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
-                    종료: {convertToUTCISO8601(lessonDate, endTime)}
-                  </Typography>
-                </Box>
-              )}
-            </Stack>
+          <Box
+            key={label}
+            sx={{
+              px: 2,
+              py: 1,
+              borderRadius: "16px 0 16px 16px",
+              border: "1px solid #EFD9A2",
+              backgroundColor: isActive ? "#FFF0C2" : isCompleted ? "#FBF7ED" : "#FFFFFF",
+              color: "#251B10",
+              fontWeight: 700,
+              fontSize: 13,
+            }}
+          >
+            {index + 1}. {label}
           </Box>
         );
-      case 1: // 2단계: 장소, 지도안링크
+      })}
+    </Stack>
+  );
+
+  const renderDateStep = () => (
+    <Stack spacing={2.5}>
+      <Typography variant="subtitle2" color="text.secondary">
+        수업 일정을 선택해주세요.
+      </Typography>
+      <AtomInput
+        type="date"
+        label="날짜"
+        value={lessonDate}
+        onChange={(event) => setLessonDate(event.target.value)}
+        fullWidth
+        required
+      />
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+        <AtomInput
+          select
+          label="시작시간"
+          value={startTime}
+          onChange={(event) => handleStartTimeChange(event.target.value)}
+          fullWidth
+          required
+        >
+          {START_TIME_OPTIONS.map((option) => (
+            <MenuItem key={option} value={option}>
+              {option}
+            </MenuItem>
+          ))}
+        </AtomInput>
+        <AtomInput
+          select
+          label="종료시간"
+          value={endTime}
+          onChange={(event) => setEndTime(event.target.value)}
+          fullWidth
+          required
+        >
+          {END_TIME_OPTIONS.map((option) => (
+            <MenuItem key={option} value={option}>
+              {option === "24:00" ? "24:00 (자정)" : option}
+            </MenuItem>
+          ))}
+        </AtomInput>
+      </Stack>
+      {lessonDate && startTime && endTime ? (
+        <SurfaceCard sx={{ p: 2.5, backgroundColor: "#FFFCF5", boxShadow: "none" }}>
+          <Typography variant="caption" color="text.secondary">
+            UTC ISO 8601 형식
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 1, fontFamily: "monospace" }}>
+            시작: {convertToUTCISO8601(lessonDate, startTime)}
+          </Typography>
+          <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
+            종료: {convertToUTCISO8601(lessonDate, endTime)}
+          </Typography>
+        </SurfaceCard>
+      ) : null}
+    </Stack>
+  );
+
+  const renderLocationStep = () => (
+    <Stack spacing={2.5}>
+      <Typography variant="subtitle2" color="text.secondary">
+        수업 장소와 진행할 지도안 링크를 입력하세요.
+      </Typography>
+      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+        {suggestedLocations.map((item) => (
+          <AtomButton
+            key={item}
+            atomVariant={location === item ? "secondary" : "outline"}
+            size="small"
+            onClick={() => setLocation(item)}
+          >
+            {item}
+          </AtomButton>
+        ))}
+      </Stack>
+      <AtomInput
+        label="장소"
+        value={location}
+        onChange={(event) => setLocation(event.target.value)}
+        placeholder="직접 입력하거나 위 추천 장소를 선택하세요"
+        fullWidth
+        required
+      />
+      <Divider />
+      <AtomInput
+        label="지도안 링크 (노션 URL)"
+        value={guideUrl}
+        onChange={(event) => setGuideUrl(event.target.value)}
+        placeholder="https://notion.so/..."
+        fullWidth
+      />
+    </Stack>
+  );
+
+  const renderInstructorStep = () => (
+    <Stack spacing={2}>
+      <Typography variant="subtitle2" color="text.secondary">
+        해당 일정과 장소에 투입 가능한 강사 목록입니다.
+      </Typography>
+      {mockInstructors.map((instructor) => {
+        const isSelected = selectedInstructor === instructor.id;
+
         return (
-          <Box sx={{ mt: 2 }}>
-            <Typography
-              variant="subtitle2"
-              color="textSecondary"
-              sx={{ mb: 2 }}
+          <SurfaceCard
+            key={instructor.id}
+            sx={{
+              p: 2.5,
+              borderRadius: "18px 0 18px 18px",
+              backgroundColor: isSelected ? "#FFF8E1" : "#FFFFFF",
+              borderColor: isSelected ? "#D8B457" : "divider",
+              boxShadow: "none",
+            }}
+          >
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={2}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", sm: "center" }}
             >
-              수업 장소와 진행할 지도안(노션) 링크를 입력하세요.
-            </Typography>
-            <Stack spacing={3}>
               <Box>
-                <Typography
-                  variant="caption"
-                  color="textSecondary"
-                  sx={{ display: "block", mb: 1 }}
-                ></Typography>
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}
-                >
-                  <Chip
-                    label="국립중앙박물관"
-                    onClick={() => setLocation("국립중앙박물관")}
-                    color="primary"
-                    variant="outlined"
-                    sx={{ cursor: "pointer" }}
-                  />
-                  <Chip
-                    label="국립경주박물관"
-                    onClick={() => setLocation("국립경주박물관")}
-                    color="primary"
-                    variant="outlined"
-                    sx={{ cursor: "pointer" }}
-                  />
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75 }}>
+                  <Typography variant="subtitle2">{instructor.name} 강사</Typography>
+                  <AtomBadge tone={instructor.tone} label={instructor.status} />
                 </Stack>
-                <TextField
-                  label="장소 (필수)"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="직접 입력하거나 위의 버튼을 클릭하세요"
-                  fullWidth
-                  required
-                />
+                <Typography variant="body2" color="text.secondary">
+                  적합도 {instructor.match} · 최근 응답 및 가용 스케줄 기준
+                </Typography>
               </Box>
-
-              <Divider sx={{ my: 1 }} />
-
-              <Box>
-                <TextField
-                  label="지도안 링크 (노션 URL)"
-                  placeholder="https://notion.so/..."
-                  fullWidth
-                  sx={{ mb: 3 }}
-                />
-              </Box>
+              <AtomButton
+                atomVariant={isSelected ? "secondary" : "outline"}
+                size="small"
+                onClick={() => setSelectedInstructor(isSelected ? "" : instructor.id)}
+              >
+                {isSelected ? "선택됨" : "선택"}
+              </AtomButton>
             </Stack>
-          </Box>
+          </SurfaceCard>
         );
-      case 2: // 3단계: 강사 선택
-        // db 연결시 수정해야함.
-        const mockInstructors = [
-          {
-            id: "inst_1",
-            name: "강혜린",
-            status: "가용확인 완료",
-            match: "98%",
-          },
-          {
-            id: "inst_2",
-            name: "김용관",
-            status: "스케줄 확인 필요",
-            match: "85%",
-          },
-          {
-            id: "inst_3",
-            name: "박지혁",
-            status: "긴급 대강 가능",
-            match: "70%",
-          },
-        ];
-        return (
-          <Box sx={{ mt: 2 }}>
-            <Typography
-              variant="subtitle2"
-              color="textSecondary"
-              sx={{ mb: 2 }}
-            >
-              해당 일정과 장소에 투입 가능한 강사 목록입니다.
-            </Typography>
-            <Stack spacing={2}>
-              {mockInstructors.map((inst) => {
-                // 💡 현재 순회 중인 강사가 선택된 강사인지 확인
-                const isSelected = selectedInstructor === inst.id;
+      })}
+    </Stack>
+  );
 
-                return (
-                  <Box
-                    key={inst.id}
-                    sx={{
-                      p: 2,
-                      // 💡 선택되면 테두리 색상과 배경색이 부드럽게 강조됩니다!
-                      border: isSelected
-                        ? "2px solid #6366f1"
-                        : "1px solid #eee",
-                      borderRadius: 2,
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      bgcolor: isSelected
-                        ? "rgba(99, 102, 241, 0.05)"
-                        : "transparent",
-                      transition: "all 0.2s",
-                    }}
-                  >
-                    <Box>
-                      <Typography fontWeight="bold">
-                        {inst.name} 강사
-                        <Typography
-                          component="span"
-                          variant="caption"
-                          color="primary"
-                          sx={{ ml: 1 }}
-                        >
-                          (적합도 {inst.match})
-                        </Typography>
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        {inst.status}
-                      </Typography>
-                    </Box>
-
-                    {/* 💡 선택 여부에 따라 버튼의 디자인과 텍스트가 바뀝니다 */}
-                    <Button
-                      variant={isSelected ? "contained" : "outlined"}
-                      color={isSelected ? "success" : "primary"}
-                      size="small"
-                      onClick={() =>
-                        setSelectedInstructor(isSelected ? "" : inst.id)
-                      } // 다시 누르면 취소도 가능!
-                      sx={{ minWidth: "80px" }}
-                    >
-                      {isSelected ? "선택됨 ✔" : "선택"}
-                    </Button>
-                  </Box>
-                );
-              })}
-            </Stack>
-          </Box>
-        );
+  const renderStepContent = () => {
+    switch (activeStep) {
+      case 0:
+        return renderDateStep();
+      case 1:
+        return renderLocationStep();
+      case 2:
+        return renderInstructorStep();
       default:
         return null;
     }
   };
 
   return (
-    <Dialog open={open} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+    <Dialog
+      open={open}
+      onClose={handleCloseModal}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: "28px 0 28px 28px",
+          overflow: "hidden",
+          backgroundColor: "#FFF9EF",
+        },
+      }}
+    >
       <DialogTitle
+        component="div"
         sx={{
-          fontWeight: "bold",
+          px: 4,
+          py: 3,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          borderBottom: "1px solid #EBDDC3",
         }}
       >
-        새 수업 생성
-        {/* 기획서에 명시된 '이전 수업 복제' 버튼  */}
+        <Typography variant="h4" component="div">
+          새 수업 생성
+        </Typography>
         <Tooltip title="가장 최근에 만든 수업 정보를 그대로 가져옵니다">
-          <Button
-            size="small"
-            startIcon={<ContentCopyIcon />}
-            variant="outlined"
-            color="inherit"
-          >
-            이전 수업 복제
-          </Button>
+          <Box>
+            <AtomButton atomVariant="outline" size="small" startIcon={<ContentCopyIcon />}>
+              이전 수업 복제
+            </AtomButton>
+          </Box>
         </Tooltip>
       </DialogTitle>
-      <DialogContent dividers sx={{ minHeight: 350 }}>
-        <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-        {renderStepContent(activeStep)}
+
+      <DialogContent sx={{ px: 4, py: 3.5 }}>
+        {renderStepPills()}
+        {renderStepContent()}
       </DialogContent>
-      <DialogActions sx={{ p: 3 }}>
-        <Button onClick={handleCloseModal} color="inherit">
+
+      <DialogActions sx={{ px: 4, py: 3, borderTop: "1px solid #EBDDC3" }}>
+        <AtomButton atomVariant="ghost" onClick={handleCloseModal}>
           취소
-        </Button>
+        </AtomButton>
         <Box sx={{ flexGrow: 1 }} />
-        <Button disabled={activeStep === 0} onClick={handleBack} sx={{ mr: 1 }}>
+        <AtomButton atomVariant="outline" disabled={activeStep === 0} onClick={() => setActiveStep((prev) => prev - 1)}>
           이전
-        </Button>
+        </AtomButton>
         {activeStep === steps.length - 1 ? (
-          // 기획서에 명시된 '수업 생성' 버튼 [cite: 45]
-          <Button variant="contained" onClick={handleCreateLesson}>
-            수업 생성
-          </Button>
+          <AtomButton onClick={handleCreateLesson}>수업 생성</AtomButton>
         ) : (
-          <Button variant="contained" onClick={handleNext}>
-            다음
-          </Button>
+          <AtomButton onClick={() => setActiveStep((prev) => prev + 1)}>다음</AtomButton>
         )}
       </DialogActions>
     </Dialog>

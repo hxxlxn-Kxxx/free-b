@@ -1,7 +1,8 @@
 import React from "react";
-import { Card, Typography, LinearProgress } from "@mui/material";
+import { Box, LinearProgress, Typography } from "@mui/material";
 
-// TypeScript 인터페이스로 전달받을 데이터의 타입을 명확히 정의합니다.
+import SurfaceCard from "./admin/SurfaceCard";
+
 interface StatCardProps {
   title: string;
   value: string;
@@ -18,32 +19,42 @@ export default function StatCard({
   color,
 }: StatCardProps) {
   return (
-    <Card
-      sx={{ p: 2, borderRadius: 3, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}
-    >
-      <Typography variant="subtitle2" color="textSecondary">
+    <SurfaceCard sx={{ p: 3 }}>
+      <Typography variant="subtitle2" color="text.secondary">
         {title}
       </Typography>
-      <Typography variant="h5" sx={{ my: 1, fontWeight: "bold" }}>
+      <Typography variant="h4" sx={{ mt: 1.5, mb: 1, fontWeight: 700 }}>
         {value}
       </Typography>
+      <Box
+        sx={{
+          display: "inline-flex",
+          alignItems: "center",
+          px: 1.5,
+          py: 0.75,
+          borderRadius: 999,
+          backgroundColor: "rgba(251, 247, 237, 0.95)",
+          color: "text.secondary",
+          fontSize: 12,
+          fontWeight: 700,
+          mb: 2,
+        }}
+      >
+        운영 지표
+      </Box>
       <LinearProgress
         variant="determinate"
         value={progress}
         sx={{
-          height: 6,
-          borderRadius: 5,
-          bgcolor: "#eee",
+          height: 8,
+          borderRadius: 999,
+          bgcolor: "#F4E9CB",
           "& .MuiLinearProgress-bar": { bgcolor: color },
         }}
       />
-      <Typography
-        variant="caption"
-        color="textSecondary"
-        sx={{ mt: 1, display: "block" }}
-      >
+      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
         {subValue}
       </Typography>
-    </Card>
+    </SurfaceCard>
   );
 }

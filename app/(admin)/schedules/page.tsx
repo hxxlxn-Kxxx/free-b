@@ -1,72 +1,76 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Box,
-  Typography,
-  Button,
-  Paper,
-  Stack,
-  TextField,
+  Divider,
+  Drawer,
   MenuItem,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
-  Drawer,
-  Divider,
+  Typography,
 } from "@mui/material";
 import { Add, Search } from "@mui/icons-material";
+
 import AssignmentModal from "@/src/components/AssignmentModal";
+import FilterBar from "@/src/components/admin/FilterBar";
+import PageHeader from "@/src/components/admin/PageHeader";
+import SurfaceCard from "@/src/components/admin/SurfaceCard";
+import AtomBadge from "@/src/components/atoms/AtomBadge";
+import AtomButton from "@/src/components/atoms/AtomButton";
+import AtomInput from "@/src/components/atoms/AtomInput";
 
-// 백엔드 기준 Lesson/LessonRequest Status enum
-type LessonStatus =
-  | "PENDING"
-  | "ACCEPTED"
-  | "CONTRACT_SIGNED"
-  | "UPDATED"
-  | "IN_PROGRESS"
-  | "COMPLETED"
-  | "CANCELLED";
-
-type LessonRequestStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED";
-
-// 백엔드 enum → 프론트 한국어 매핑
-const LESSON_STATUS_MAP: Record<LessonStatus, string> = {
-  PENDING: "미배정",
-  ACCEPTED: "요청중",
-  CONTRACT_SIGNED: "확정",
-  UPDATED: "수정됨",
-  IN_PROGRESS: "진행중",
-  COMPLETED: "완료",
-  CANCELLED: "취소",
+type LessonRow = {
+  title: string;
+  date: string;
+  time: string;
+  location: string;
+  attendees: string;
+  instructor: string;
+  status: string;
 };
 
-// 기획서 기반 상태 옵션
 const STATUS_OPTIONS = ["전체", "미배정", "요청중", "확정"];
+
+const MOCK_LESSONS: LessonRow[] = [
+  {
+    title: "[초등] 역사 탐험대",
+    date: "2026-03-05",
+    time: "10:00 - 12:00",
+    location: "국립중앙박물관",
+    attendees: "8명",
+    instructor: "김철수",
+    status: "확정",
+  },
+  {
+    title: "[중등] 과학 체험실",
+    date: "2026-03-06",
+    time: "14:00 - 16:00",
+    location: "송파청소년수련관",
+    attendees: "12명",
+    instructor: "배정 중",
+    status: "미배정",
+  },
+];
+
+const lessonToneMap: Record<string, string> = {
+  확정: "confirmed",
+  요청중: "requested",
+  미배정: "rejected",
+};
 
 export default function SchedulesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<any>(null); // 상세 보기용
-
+  const [selectedClass, setSelectedClass] = useState<LessonRow | null>(null);
   const [filterDate, setFilterDate] = useState("");
-  const [filterTime, setFilterTime] = useState(""); // 시간 필터 추가
-  const [filterInstructor, setFilterInstructor] = useState(""); // 강사 필터 추가
+  const [filterTime, setFilterTime] = useState("");
+  const [filterInstructor, setFilterInstructor] = useState("");
   const [filterStatus, setFilterStatus] = useState("전체");
-
-  const handleSearch = () => {
-    // 실제 백엔드가 붙으면 여기서 API를 호출해 데이터를 다시 불러옵니다!
-    console.log("검색 조건:", {
-      filterDate,
-      filterTime,
-      filterInstructor,
-      filterStatus,
-    });
-    alert("검색이 실행되었습니다! (콘솔을 확인해보세요)");
-  };
 
   const handleReset = () => {
     setFilterDate("");
@@ -75,216 +79,152 @@ export default function SchedulesPage() {
     setFilterStatus("전체");
   };
 
-  const getStatusColor = (status: LessonStatus | string) => {
-    switch (status) {
-      case "CONTRACT_SIGNED":
-      case "확정":
-        return "success";
-      case "ACCEPTED":
-      case "요청중":
-        return "warning";
-      case "PENDING":
-      case "미배정":
-        return "error";
-      case "IN_PROGRESS":
-      case "진행중":
-        return "primary";
-      case "COMPLETED":
-      case "완료":
-        return "success";
-      case "CANCELLED":
-      case "취소":
-        return "error";
-      default:
-        return "default";
-    }
-  };
-
   return (
     <Box>
-      {/* 상단 타이틀 및 생성 버튼 [cite: 30, 33] */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 4,
-        }}
-      >
-        <Typography variant="h4" fontWeight="bold">
-          수업 관리
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => setIsModalOpen(true)}
+      <PageHeader
+        title="수업 관리"
+        description="배정 전 수업, 요청 상태, 확정 수업을 한 리스트에서 추적합니다."
+        action={
+          <AtomButton startIcon={<Add />} onClick={() => setIsModalOpen(true)}>
+            새 수업 생성
+          </AtomButton>
+        }
+      />
+
+      <FilterBar>
+        <AtomInput
+          type="date"
+          label="날짜"
+          value={filterDate}
+          onChange={(event) => setFilterDate(event.target.value)}
+          size="small"
+          sx={{ flex: 1 }}
+        />
+        <AtomInput
+          type="time"
+          label="시간"
+          value={filterTime}
+          onChange={(event) => setFilterTime(event.target.value)}
+          size="small"
+          sx={{ flex: 1 }}
+        />
+        <AtomInput
+          label="강사명"
+          placeholder="이름 입력"
+          value={filterInstructor}
+          onChange={(event) => setFilterInstructor(event.target.value)}
+          size="small"
+          sx={{ flex: 1 }}
+        />
+        <AtomInput
+          select
+          label="상태"
+          value={filterStatus}
+          onChange={(event) => setFilterStatus(event.target.value)}
+          size="small"
+          sx={{ flex: 1 }}
         >
-          새 수업 생성
-        </Button>
-      </Box>
-
-      {/* 필터 영역 [cite: 31, 32] */}
-      <Paper
-        sx={{
-          p: 3,
-          mb: 3,
-          borderRadius: 3,
-          boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
-        }}
-      >
-        {/* 상단: 4개의 필터 입력창 */}
-        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-          <TextField
-            type="date"
-            label="날짜"
-            InputLabelProps={{ shrink: true }}
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            size="small"
-            fullWidth
-          />
-          <TextField
-            type="time"
-            label="시간"
-            InputLabelProps={{ shrink: true }}
-            value={filterTime}
-            onChange={(e) => setFilterTime(e.target.value)}
-            size="small"
-            fullWidth
-          />
-          <TextField
-            label="강사명"
-            placeholder="이름 입력"
-            value={filterInstructor}
-            onChange={(e) => setFilterInstructor(e.target.value)}
-            size="small"
-            fullWidth
-          />
-          <TextField
-            select
-            label="상태"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            size="small"
-            fullWidth
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <MenuItem key={opt} value={opt}>
-                {opt}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Stack>
-
-        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
-          <Button variant="outlined" color="inherit" onClick={handleReset}>
+          {STATUS_OPTIONS.map((option) => (
+            <MenuItem key={option} value={option}>
+              {option}
+            </MenuItem>
+          ))}
+        </AtomInput>
+        <Stack direction="row" spacing={1}>
+          <AtomButton atomVariant="outline" onClick={handleReset}>
             초기화
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<Search />}
-            onClick={handleSearch}
-            disableElevation
-          >
-            검색
-          </Button>
-        </Box>
-      </Paper>
+          </AtomButton>
+          <AtomButton startIcon={<Search />}>검색</AtomButton>
+        </Stack>
+      </FilterBar>
 
-      {/* 리스트 테이블  */}
-      <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
+      <TableContainer component={SurfaceCard}>
         <Table>
-          <TableHead sx={{ bgcolor: "#f8f9fa" }}>
+          <TableHead sx={{ bgcolor: "#FBF7ED" }}>
             <TableRow>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 날짜
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 시간
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 장소
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 인원
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 강사
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 상태
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: "bold" }}>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
                 상세
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {/* 데이터 맵핑 영역 (예시) */}
-            <TableRow hover>
-              <TableCell align="center">2026-03-05</TableCell>
-              <TableCell align="center">10:00 - 12:00</TableCell>
-              <TableCell align="center">국립중앙박물관</TableCell>
-              <TableCell align="center">8명</TableCell>
-              <TableCell align="center">김철수</TableCell>
-              <TableCell align="center">
-                <Chip label="확정" color="success" size="small" />
-              </TableCell>
-              <TableCell align="center">
-                <Button
-                  size="small"
-                  onClick={() =>
-                    setSelectedClass({ title: "[초등] 역사 탐험대" })
-                  }
-                >
-                  보기
-                </Button>
-              </TableCell>
-            </TableRow>
+            {MOCK_LESSONS.map((lesson) => (
+              <TableRow key={`${lesson.date}-${lesson.title}`} hover>
+                <TableCell align="center">{lesson.date}</TableCell>
+                <TableCell align="center">{lesson.time}</TableCell>
+                <TableCell align="center">{lesson.location}</TableCell>
+                <TableCell align="center">{lesson.attendees}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 600 }}>
+                  {lesson.instructor}
+                </TableCell>
+                <TableCell align="center">
+                  <AtomBadge tone={lessonToneMap[lesson.status]} label={lesson.status} />
+                </TableCell>
+                <TableCell align="center">
+                  <AtomButton
+                    atomVariant="outline"
+                    size="small"
+                    onClick={() => setSelectedClass(lesson)}
+                  >
+                    보기
+                  </AtomButton>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </TableContainer>
 
-      {/* 수업 상세 슬라이드 패널 (기획서 2-3 반영)  */}
-      <Drawer
-        anchor="right"
-        open={!!selectedClass}
-        onClose={() => setSelectedClass(null)}
-      >
-        <Box sx={{ width: 400, p: 4 }}>
-          <Typography variant="h6" fontWeight="bold" gutterBottom>
+      <Drawer anchor="right" open={Boolean(selectedClass)} onClose={() => setSelectedClass(null)}>
+        <Box sx={{ width: 420, p: 4, backgroundColor: "#FFF9EF", height: "100%" }}>
+          <Typography variant="h4" sx={{ mb: 0.5 }}>
             수업 상세 정보
           </Typography>
-          <Divider sx={{ my: 2 }} />
-
-          {/* 도착 체크인 영역 [cite: 61] */}
-          <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 3 }}>
-            📍 도착 체크인 현황
+          <Typography variant="body2" color="text.secondary">
+            {selectedClass?.title}
           </Typography>
-          <Paper variant="outlined" sx={{ p: 2, mt: 1, bgcolor: "#f0f7ff" }}>
-            <Typography variant="body2">
-              체크인 시간: 09:55 (정상) [cite: 63, 66]
-            </Typography>
-            <Typography variant="body2">
-              GPS 거리: 15m 이내 [cite: 65]
-            </Typography>
-          </Paper>
+          <Divider sx={{ my: 3 }} />
 
-          <Stack spacing={2} sx={{ mt: 4 }}>
-            <Button variant="outlined" fullWidth>
-              강사 변경 [cite: 68]
-            </Button>
-            <Button variant="outlined" color="error" fullWidth>
-              수업 취소 [cite: 69]
-            </Button>
+          <SurfaceCard sx={{ p: 3, mb: 3, backgroundColor: "#FFFCF5", boxShadow: "none" }}>
+            <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+              도착 체크인 현황
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 0.75 }}>
+              체크인 시간: 09:55 (정상)
+            </Typography>
+            <Typography variant="body2">GPS 거리: 15m 이내</Typography>
+          </SurfaceCard>
+
+          <Stack spacing={1.5}>
+            <AtomButton atomVariant="outline" sx={{ width: "100%" }}>
+              강사 변경
+            </AtomButton>
+            <AtomButton atomVariant="danger" sx={{ width: "100%" }}>
+              수업 취소
+            </AtomButton>
           </Stack>
         </Box>
       </Drawer>
 
-      <AssignmentModal
-        open={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
+      <AssignmentModal open={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </Box>
   );
 }

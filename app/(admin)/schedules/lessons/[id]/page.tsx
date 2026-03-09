@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Box,
@@ -37,22 +37,53 @@ import {
   Edit,
   Block,
 } from "@mui/icons-material";
+import { LESSON_STATUS_MAP, type LessonStatus } from "@/src/types/backend";
 
-const CLASS_STATUS_MAP: Record<string, string> = {
-  SCHEDULED: "배정 완료",
-  PENDING: "강사 대기",
-  IN_PROGRESS: "수업 진행중",
-  COMPLETED: "수업 완료",
-  CANCELLED: "취소됨",
+type LessonDetail = {
+  lessonId?: string;
+  id?: string;
+  lectureTitle?: string;
+  startsAt?: string;
+  endsAt?: string;
+  payAmount?: number;
+  studentCount?: number;
+  region?: string;
+  museum?: string;
+  guideNotionUrl?: string;
+  lessonDetails?: string;
+  deliveryNotes?: string;
+  instructorName?: string;
+  status?: LessonStatus;
+  classStatus?: string;
 };
 
-const formatUtcToLocal = (utcString: string) => {
+type AvailableInstructor = {
+  instructorId?: string;
+  id?: string;
+  instructorName?: string;
+  name?: string;
+};
+
+const CLASS_STATUS_MAP: Record<string, string> = {
+  ...LESSON_STATUS_MAP,
+  SCHEDULED: "배정 완료",
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "알 수 없는 오류가 발생했습니다.";
+};
+
+const formatUtcToLocal = (utcString?: string) => {
   if (!utcString) return "-";
   const d = new Date(utcString);
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
 };
 
-const formatForInput = (utcString: string) => {
+const formatForInput = (utcString?: string) => {
   if (!utcString) return "";
   const d = new Date(utcString);
   const offset = d.getTimezoneOffset() * 60000;
@@ -63,12 +94,12 @@ export default function ClassDetailPage() {
   const { id } = useParams();
   const router = useRouter();
 
-  const [lesson, setLesson] = useState<any>(null);
+  const [lesson, setLesson] = useState<LessonDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [availableInstructors, setAvailableInstructors] = useState<any[]>([]);
+  const [availableInstructors, setAvailableInstructors] = useState<AvailableInstructor[]>([]);
   const [isFetchingInstructors, setIsFetchingInstructors] = useState(false);
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
   const [isAssigning, setIsAssigning] = useState(false);
@@ -90,7 +121,7 @@ export default function ClassDetailPage() {
     deliveryNotes: "",
   });
 
-  const fetchLessonDetail = async () => {
+  const fetchLessonDetail = useCallback(async () => {
     try {
       const token = localStorage.getItem("accessToken");
       const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -106,18 +137,23 @@ export default function ClassDetailPage() {
       }
       const data = await response.json();
       setLesson(data.data || data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     if (id) fetchLessonDetail();
-  }, [id]);
+  }, [id, fetchLessonDetail]);
 
   const handleOpenAssignModal = async () => {
+    if (!lesson?.startsAt || !lesson?.endsAt) {
+      alert("수업 시간이 없어 강사 목록을 조회할 수 없습니다.");
+      return;
+    }
+
     setIsAssignModalOpen(true);
     setIsFetchingInstructors(true);
     try {
@@ -137,9 +173,9 @@ export default function ClassDetailPage() {
 
       const data = await response.json();
       setAvailableInstructors(Array.isArray(data) ? data : data.data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert(err.message);
+      alert(getErrorMessage(err));
     } finally {
       setIsFetchingInstructors(false);
     }
@@ -172,8 +208,8 @@ export default function ClassDetailPage() {
       setSelectedInstructorId("");
 
       fetchLessonDetail();
-    } catch (err: any) {
-      alert(`배정 요청 실패: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`배정 요청 실패: ${getErrorMessage(err)}`);
     } finally {
       setIsAssigning(false);
     }
@@ -195,20 +231,24 @@ export default function ClassDetailPage() {
 
       alert("수업이 취소되었습니다.");
       fetchLessonDetail();
-    } catch (err: any) {
-      alert(`취소 실패: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`취소 실패: ${getErrorMessage(err)}`);
     } finally {
       setIsCanceling(false);
     }
   };
 
   const handleOpenEdit = () => {
+    if (!lesson) {
+      return;
+    }
+
     setEditFormData({
       lectureTitle: lesson.lectureTitle || "",
       startsAt: formatForInput(lesson.startsAt),
       endsAt: formatForInput(lesson.endsAt),
-      payAmount: lesson.payAmount || "",
-      studentCount: lesson.studentCount || "",
+      payAmount: lesson.payAmount != null ? String(lesson.payAmount) : "",
+      studentCount: lesson.studentCount != null ? String(lesson.studentCount) : "",
       region: lesson.region || "",
       museum: lesson.museum || "",
       guideNotionUrl: lesson.guideNotionUrl || "",
@@ -253,8 +293,8 @@ export default function ClassDetailPage() {
       alert("정보가 수정되었습니다.");
       setIsEditDrawerOpen(false);
       fetchLessonDetail();
-    } catch (err: any) {
-      alert(`수정 실패: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`수정 실패: ${getErrorMessage(err)}`);
     } finally {
       setIsUpdating(false);
     }
@@ -293,6 +333,7 @@ export default function ClassDetailPage() {
   }
   const isCanceled =
     lesson.classStatus === "CANCELLED" || lesson.status === "CANCELLED";
+  const currentStatus = lesson.classStatus || lesson.status || "";
 
   return (
     <Box sx={{ maxWidth: 900, mx: "auto" }}>
@@ -331,14 +372,10 @@ export default function ClassDetailPage() {
         )}
         <Chip
           label={
-            CLASS_STATUS_MAP[lesson.classStatus || lesson.status] ||
-            lesson.classStatus ||
-            lesson.status
+            CLASS_STATUS_MAP[currentStatus] || currentStatus
           }
           color={
-            ["SCHEDULED", "COMPLETED"].includes(
-              lesson.classStatus || lesson.status,
-            )
+            ["SCHEDULED", "COMPLETED"].includes(currentStatus)
               ? "primary"
               : "warning"
           }
