@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Box, Grid, Stack, Typography } from "@mui/material";
+import { useRef, useState, useEffect } from "react";
+import { Box, Chip, CircularProgress, Grid, Stack, Typography } from "@mui/material";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import CalendarTodayRoundedIcon from "@mui/icons-material/CalendarTodayRounded";
@@ -10,32 +10,164 @@ import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import FullCalendar from "@fullcalendar/react";
 import daygridPlugin from "@fullcalendar/daygrid";
-import type { DatesSetArg } from "@fullcalendar/core";
+import type { DatesSetArg, EventClickArg } from "@fullcalendar/core";
 
 import AssignmentModal from "../../../src/components/AssignmentModal";
 import AtomButton from "@/src/components/atoms/AtomButton";
 import PageHeader from "@/src/components/admin/PageHeader";
 import StatCard from "@/src/components/StatCard";
 import SurfaceCard from "@/src/components/admin/SurfaceCard";
+import { apiClient } from "@/src/lib/apiClient";
+import { LESSON_STATUS_MAP, type LessonStatus, type ContractStatus } from "@/src/types/backend";
 
-const liveCheckins = [
-  { location: "강남역 지점", instructor: "김철수", time: "10:05", state: "도착 완료" },
-  { location: "홍대 지점", instructor: "이영희", time: "09:55", state: "교실 입실" },
-  { location: "분당 수업지", instructor: "박지민", time: "11:20", state: "출발 대기" },
-];
+// ─────────────────────────────────────────────
+// 타입
+// ─────────────────────────────────────────────
+type LessonRow = {
+  lessonId: string;
+  lectureTitle?: string;
+  startsAt: string;
+  endsAt: string;
+  status: LessonStatus;
+  museum?: string;
+  venueName?: string;
+  region?: string;
+  requestedInstructorId?: string | null;
+};
 
+type ContractRow = {
+  contractId?: string;
+  id?: string;
+  status: ContractStatus;
+};
+
+// ─────────────────────────────────────────────
+// 상태별 캘린더 이벤트 색상
+// ─────────────────────────────────────────────
+const STATUS_COLOR_MAP: Record<LessonStatus, string> = {
+  PENDING: "#E65100",       // 빨강 계열 (미배정)
+  ACCEPTED: "#1565C0",      // 파랑 (요청중)
+  CONTRACT_SIGNED: "#2E7D32", // 초록 (확정)
+  UPDATED: "#6A1B9A",       // 보라 (수정됨)
+  IN_PROGRESS: "#00838F",   // 청록 (진행중)
+  COMPLETED: "#546E7A",     // 회색 (완료)
+  CANCELLED: "#9E9E9E",     // 연회색 (취소)
+};
+
+// ─────────────────────────────────────────────
+// 헬퍼
+// ─────────────────────────────────────────────
+function isToday(isoStr: string): boolean {
+  const d = new Date(isoStr);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+// ─────────────────────────────────────────────
+// 메인 컴포넌트
+// ─────────────────────────────────────────────
 export default function DashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [calendarTitle, setCalendarTitle] = useState("2026년 3월");
   const calendarRef = useRef<FullCalendar | null>(null);
+
+  // 데이터 상태
+  const [lessons, setLessons] = useState<LessonRow[]>([]);
+  const [contracts, setContracts] = useState<ContractRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 선택된 이벤트 툴팁
+  const [selectedEvent, setSelectedEvent] = useState<{ title: string; location: string; status: LessonStatus } | null>(null);
+
+  // ── 데이터 로드
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const [lessonData, contractData] = await Promise.all([
+          apiClient.getLessons(""),
+          apiClient.getContracts(""),
+        ]);
+
+        const lessonList: LessonRow[] = Array.isArray(lessonData)
+          ? lessonData
+          : Array.isArray(lessonData?.data)
+          ? lessonData.data
+          : [];
+
+        const contractList: ContractRow[] = Array.isArray(contractData)
+          ? contractData
+          : Array.isArray(contractData?.contracts)
+          ? contractData.contracts
+          : Array.isArray(contractData?.data)
+          ? contractData.data
+          : [];
+
+        setLessons(lessonList);
+        setContracts(contractList);
+      } catch (err) {
+        console.error("대시보드 데이터 로드 실패:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  // ── 통계 계산 (프론트 계산)
+  const todayLessons = lessons.filter(
+    (l) => l.status !== "CANCELLED" && isToday(l.startsAt)
+  );
+  const unassignedLessons = lessons.filter(
+    (l) => l.status === "PENDING" || l.status === "ACCEPTED"
+  );
+  // 미서명 계약 = DRAFT | SENT | INSTRUCTOR_SIGNED
+  const unsignedContracts = contracts.filter(
+    (c) => c.status === "DRAFT" || c.status === "SENT" || c.status === "INSTRUCTOR_SIGNED"
+  );
+  const activeLessons = lessons.filter(
+    (l) => l.status !== "CANCELLED" && l.status !== "COMPLETED"
+  );
+
+  // ── FullCalendar 이벤트 변환
+  const calendarEvents = lessons
+    .filter((l) => l.status !== "CANCELLED")
+    .map((l) => ({
+      id: l.lessonId,
+      title: l.lectureTitle || "수업",
+      start: l.startsAt,
+      end: l.endsAt,
+      backgroundColor: STATUS_COLOR_MAP[l.status] ?? "#546E7A",
+      borderColor: STATUS_COLOR_MAP[l.status] ?? "#546E7A",
+      extendedProps: {
+        location: l.museum || l.venueName || l.region || "",
+        status: l.status,
+      },
+    }));
+
+  // ── 오늘 수업 Live 섹션
+  const todayEvents = lessons
+    .filter((l) => l.status !== "CANCELLED" && isToday(l.startsAt))
+    .slice(0, 5); // 최대 5건만 표시
 
   const handleDatesSet = (dateInfo: DatesSetArg) => {
     const label = new Intl.DateTimeFormat("ko-KR", {
       year: "numeric",
       month: "long",
     }).format(dateInfo.view.currentStart);
-
     setCalendarTitle(label.replace(" ", " "));
+  };
+
+  const handleEventClick = (info: EventClickArg) => {
+    setSelectedEvent({
+      title: info.event.title,
+      location: info.event.extendedProps.location,
+      status: info.event.extendedProps.status,
+    });
   };
 
   return (
@@ -45,46 +177,66 @@ export default function DashboardPage() {
         description="오늘 운영 이슈와 배정 흐름을 한 화면에서 빠르게 확인합니다."
       />
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard
-            title="오늘 수업"
-            value="12건"
-            subValue="어제 대비 15% 증가"
-            progress={70}
-            color="#8C6C1B"
-          />
+      {/* ── 통계 카드 */}
+      {isLoading ? (
+        <Box display="flex" justifyContent="center" py={4}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <StatCard
+              title="오늘 수업"
+              value={`${todayLessons.length}건`}
+              subValue={todayLessons.length > 0 ? "오늘 예정된 수업" : "오늘 수업 없음"}
+              progress={Math.min(todayLessons.length * 10, 100)}
+              color="#8C6C1B"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <StatCard
+              title="미배정/요청중"
+              value={`${unassignedLessons.length}건`}
+              subValue={unassignedLessons.length > 0 ? "강사 배정 필요" : "모두 배정됨"}
+              progress={
+                activeLessons.length > 0
+                  ? Math.round((unassignedLessons.length / activeLessons.length) * 100)
+                  : 0
+              }
+              color="#E1B73E"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <StatCard
+              title="미서명 계약"
+              value={`${unsignedContracts.length}건`}
+              subValue={unsignedContracts.length > 0 ? "서명 대기 중" : "모두 서명 완료"}
+              progress={
+                contracts.length > 0
+                  ? Math.round((unsignedContracts.length / contracts.length) * 100)
+                  : 0
+              }
+              color="#D45D43"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <StatCard
+              title="전체 활성 수업"
+              value={`${activeLessons.length}건`}
+              subValue="취소·완료 제외"
+              progress={
+                lessons.length > 0
+                  ? Math.round((activeLessons.length / lessons.length) * 100)
+                  : 0
+              }
+              color="#6F8C52"
+            />
+          </Grid>
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard
-            title="미확정 일정"
-            value="5건"
-            subValue="긴급 확인 필요"
-            progress={40}
-            color="#E1B73E"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard
-            title="체크인 경고"
-            value="2건"
-            subValue="미체크인 강사 존재"
-            progress={20}
-            color="#D45D43"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard
-            title="계약 만료"
-            value="3건"
-            subValue="이번 달 만료 예정"
-            progress={80}
-            color="#6F8C52"
-          />
-        </Grid>
-      </Grid>
+      )}
 
       <Grid container spacing={3}>
+        {/* ── FullCalendar */}
         <Grid size={{ xs: 12, lg: 8 }}>
           <SurfaceCard sx={{ p: 3, minHeight: 680 }}>
             <Stack
@@ -106,8 +258,7 @@ export default function DashboardPage() {
                 </AtomButton>
                 <Box
                   sx={{
-                    px: 2.25,
-                    py: 1,
+                    px: 2.25, py: 1,
                     borderRadius: "16px 0 16px 16px",
                     backgroundColor: "#FBF7ED",
                     border: "1px solid #EFD9A2",
@@ -130,103 +281,167 @@ export default function DashboardPage() {
                 </AtomButton>
               </Stack>
             </Stack>
+
+            {/* 이벤트 클릭 툴팁 */}
+            {selectedEvent && (
+              <Box
+                sx={{
+                  mb: 2, p: 1.5, borderRadius: 2,
+                  bgcolor: "#FBF7ED", border: "1px solid #EFD9A2",
+                  display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap",
+                }}
+              >
+                <Typography variant="body2" fontWeight={700}>{selectedEvent.title}</Typography>
+                {selectedEvent.location && (
+                  <Typography variant="body2" color="text.secondary">
+                    📍 {selectedEvent.location}
+                  </Typography>
+                )}
+                <Chip
+                  label={LESSON_STATUS_MAP[selectedEvent.status]?.label ?? selectedEvent.status}
+                  color={LESSON_STATUS_MAP[selectedEvent.status]?.color as any ?? "default"}
+                  size="small"
+                  sx={{ fontWeight: 700 }}
+                />
+                <AtomButton
+                  atomVariant="ghost"
+                  size="small"
+                  sx={{ ml: "auto", minHeight: 28 }}
+                  onClick={() => setSelectedEvent(null)}
+                >
+                  닫기
+                </AtomButton>
+              </Box>
+            )}
+
             <FullCalendar
               ref={calendarRef}
               plugins={[daygridPlugin]}
               initialView="dayGridMonth"
-              height="100%"
+              height="auto"
               locale="ko"
               headerToolbar={false}
               datesSet={handleDatesSet}
+              events={calendarEvents}
+              eventClick={handleEventClick}
+              eventDisplay="block"
+              dayMaxEvents={3}
+              moreLinkText={(n) => `+${n}건 더보기`}
             />
           </SurfaceCard>
         </Grid>
 
+        {/* ── 사이드 패널 */}
         <Grid size={{ xs: 12, lg: 4 }}>
           <Stack spacing={3}>
+            {/* 오늘 수업 Live */}
             <SurfaceCard sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
-                Live 체크인
+                오늘 수업 현황
               </Typography>
-              <Stack spacing={1.5}>
-                {liveCheckins.map((item) => (
-                  <Box
-                    key={`${item.location}-${item.instructor}`}
-                    sx={{
-                      display: "grid",
-                      gridTemplateColumns: "auto 1fr auto",
-                      gap: 1.5,
-                      alignItems: "center",
-                      px: 2,
-                      py: 1.5,
-                      borderRadius: 4,
-                      backgroundColor: "#FFFCF5",
-                    }}
-                  >
-                    <PlaceRoundedIcon sx={{ color: "primary.main", fontSize: 18 }} />
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        {item.location}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {item.instructor} · {item.state}
-                      </Typography>
-                    </Box>
-                    <Typography variant="caption" color="text.secondary">
-                      {item.time}
-                    </Typography>
-                  </Box>
-                ))}
-              </Stack>
+              {isLoading ? (
+                <Box display="flex" justifyContent="center" py={3}>
+                  <CircularProgress size={28} />
+                </Box>
+              ) : todayEvents.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
+                  오늘 예정된 수업이 없습니다.
+                </Typography>
+              ) : (
+                <Stack spacing={1.5}>
+                  {todayEvents.map((lesson) => {
+                    const location = lesson.museum || lesson.venueName || lesson.region || "-";
+                    const startTime = new Date(lesson.startsAt).toLocaleTimeString("ko-KR", {
+                      hour: "2-digit", minute: "2-digit", hour12: false,
+                    });
+                    const statusInfo = LESSON_STATUS_MAP[lesson.status];
+                    return (
+                      <Box
+                        key={lesson.lessonId}
+                        sx={{
+                          display: "grid",
+                          gridTemplateColumns: "auto 1fr auto",
+                          gap: 1.5,
+                          alignItems: "center",
+                          px: 2, py: 1.5,
+                          borderRadius: 4,
+                          backgroundColor: "#FFFCF5",
+                          borderLeft: `3px solid ${STATUS_COLOR_MAP[lesson.status] ?? "#9E9E9E"}`,
+                        }}
+                      >
+                        <PlaceRoundedIcon sx={{ color: "primary.main", fontSize: 18 }} />
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                            {lesson.lectureTitle || "수업"}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {location}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ textAlign: "right" }}>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {startTime}
+                          </Typography>
+                          <Chip
+                            label={statusInfo?.label ?? lesson.status}
+                            size="small"
+                            sx={{
+                              fontSize: "0.65rem", height: 18,
+                              bgcolor: STATUS_COLOR_MAP[lesson.status] + "22",
+                              color: STATUS_COLOR_MAP[lesson.status],
+                              fontWeight: 700,
+                            }}
+                          />
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              )}
             </SurfaceCard>
 
+            {/* AI 대강 추천 (UI 유지) */}
             <SurfaceCard
               sx={{
                 p: 3,
                 color: "#FFF9EF",
-                background:
-                  "linear-gradient(145deg, rgba(48, 35, 18, 0.96), rgba(92, 63, 25, 0.92))",
+                background: "linear-gradient(145deg, rgba(48, 35, 18, 0.96), rgba(92, 63, 25, 0.92))",
               }}
             >
               <Stack spacing={1.5}>
                 <Box
                   sx={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 3,
-                    display: "grid",
-                    placeItems: "center",
+                    width: 44, height: 44, borderRadius: 3,
+                    display: "grid", placeItems: "center",
                     backgroundColor: "rgba(255, 255, 255, 0.12)",
                   }}
                 >
                   <AutoAwesomeRoundedIcon />
                 </Box>
-                <Typography variant="h6" sx={{ color: "inherit" }}>
-                  AI 대강 추천
-                </Typography>
+                <Typography variant="h6" sx={{ color: "inherit" }}>AI 대강 추천</Typography>
                 <Typography variant="body2" sx={{ opacity: 0.85 }}>
-                  수학 강의에 이영희 강사 추천 (적합도 98%)
+                  수업 강의에 적합한 강사를 자동 추천합니다.
                 </Typography>
                 <Stack spacing={1.25} sx={{ pt: 1 }}>
                   <Box sx={{ display: "flex", gap: 1.25, alignItems: "center" }}>
                     <CalendarTodayRoundedIcon sx={{ fontSize: 18 }} />
-                    <Typography variant="body2">오늘 14:00 · 강남 본원</Typography>
+                    <Typography variant="body2">미배정 수업 {unassignedLessons.length}건 대기 중</Typography>
                   </Box>
                   <Box sx={{ display: "flex", gap: 1.25, alignItems: "center" }}>
                     <BoltRoundedIcon sx={{ fontSize: 18 }} />
-                    <Typography variant="body2">최근 응답속도 4분 · 긴급 대강 가능</Typography>
+                    <Typography variant="body2">강사 추천 기능 준비 중</Typography>
                   </Box>
                 </Stack>
               </Stack>
             </SurfaceCard>
 
+            {/* 운영 메모 */}
             <SurfaceCard sx={{ p: 3, backgroundColor: "#FFF6DC" }}>
-              <Typography variant="h6" sx={{ mb: 1.5 }}>
-                운영 메모
-              </Typography>
+              <Typography variant="h6" sx={{ mb: 1.5 }}>운영 현황 요약</Typography>
               <Typography variant="body2" color="text.secondary">
-                3월 둘째 주는 계약 갱신 대상이 몰려 있습니다. 대시보드에서 만료 임박
-                강사를 우선 확인하도록 카드 순서를 유지합니다.
+                전체 수업 {lessons.length}건 중 활성 {activeLessons.length}건,
+                미배정/요청중 {unassignedLessons.length}건,
+                미서명 계약 {unsignedContracts.length}건이 확인됩니다.
               </Typography>
             </SurfaceCard>
           </Stack>
