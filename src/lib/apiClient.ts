@@ -94,15 +94,35 @@ export const apiClient = {
 
   // --- Instructors (강사 DB) ---
   getInstructorById: (id: string) => request<any>(`/instructors/${id}`),
+  // 강사 목록 조회 API
+  getInstructors: () => 
+    request<any>("/instructors"),
 
-  // --- Contracts (뼈대) ---
-  getContracts: () => request<any>("/contracts"),
+  // --- Contracts ---
+  getContracts: (params?: string) => request<any>(`/contracts${params ? `?${params}` : ""}`),
+  getContractById: (contractId: string) => request<any>(`/contracts/${contractId}`),
 
-  // --- Attendance (뼈대) ---
+  // --- Attendance ---
   getAttendances: () => request<any>("/attendances"),
+  getAttendanceEvents: (params: { lessonId?: string; eventType?: string }) => {
+    const qs = new URLSearchParams();
+    if (params.lessonId) qs.set("lessonId", params.lessonId);
+    if (params.eventType) qs.set("eventType", params.eventType);
+    return request<any>(`/attendance-events${qs.toString() ? `?${qs}` : ""}`);
+  },
 
-  // --- Chat (뼈대) ---
+  // --- Chat ---
   getChatRooms: () => request<any>("/chat/rooms"),
+  getChatMessages: (roomId: string, cursor?: string) =>
+    request<any>(`/chat/rooms/${roomId}/messages${cursor ? `?cursor=${cursor}` : ""}`),
+  sendChatMessage: (roomId: string, content: string) =>
+    request<any>(`/chat/rooms/${roomId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    }),
+  readRoom: (roomId: string) =>
+    request<any>(`/chat/rooms/${roomId}/read`, { method: "POST" }),
+  getUnreadCount: () => request<any>("/chat/unread-count"),
 
   //  카카오 장소 검색 API
   searchVenue: (query: string) => 
