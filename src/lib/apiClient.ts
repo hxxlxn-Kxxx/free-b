@@ -23,34 +23,64 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(url, { ...options, headers });
+  let response = await fetch(url, { ...options, headers });
 
-  // 에러 핸들링
-  if (!response.ok) {
-    // 401 (인증 만료/실패) 떨어지면 로그인 페이지로 강제 추방
-    if (response.status === 401 && typeof window !== "undefined") {
-      localStorage.removeItem("accessToken");
-      window.location.href = "/auth/login";
+  if (response.status === 401 && typeof window !== "undefined") {
+    const refreshToken = localStorage.getItem("refreshToken");
+    
+    if (refreshToken) {
+      try {
+        // 재발급 API 찌르기
+        const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          const newAccess = refreshData.data?.accessToken || refreshData.accessToken;
+          
+          // 새 토큰 저장 (로컬 + 쿠키)
+          localStorage.setItem("accessToken", newAccess);
+          document.cookie = `accessToken=${newAccess}; path=/; max-age=3600;`;
+          
+          // 막혔던 원래 요청에 새 토큰 끼워서 다시 보내기!
+          headers.set("Authorization", `Bearer ${newAccess}`);
+          response = await fetch(url, { ...options, headers });
+        } else {
+          throw new Error("Refresh failed");
+        }
+      } catch (err) {
+        // 재발급도 실패하면 토큰 다 지우고 쫓아내기
+        localStorage.clear();
+        document.cookie = "accessToken=; path=/; max-age=0;";
+        window.location.href = "/login";
+      }
+    } else {
+      // 리프레시 토큰조차 없으면 쫓아내기
+      localStorage.clear();
+      document.cookie = "accessToken=; path=/; max-age=0;";
+      window.location.href = "/login";
     }
+  }
 
-    // 백엔드가 주는 에러 메시지 파싱해서 ApiError로 던지기
+  if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new ApiError(
-      response.status,
-      errorData.message || "API 요청 중 에러가 발생했습니다.",
-      errorData.code
-    );
+    throw new ApiError(response.status, errorData.message || "API Error", errorData.code);
   }
 
   const data = await response.json();
-  // 백엔드가 { data: ... } 형태로 감싸서 주면 알맹이만 빼고, 아니면 그냥 반환
   return data.data !== undefined ? data.data : data;
 }
 
 // 컴포넌트에서 가져다 쓸 실제 API 메서드들
 export const apiClient = {
-  // --- Auth ---
-  getMe: () => request<any>("/auth/me"),
+  // --- Auth & User ---
+  postAuthGoogle: (idToken: string) => 
+    request<any>("/auth/google", { method: "POST", body: JSON.stringify({ idToken }) }),
+  getMe: () => request<any>("/me"),
+  getMeCompany: () => request<any>("/me/company"),
 
   // --- Lessons ---
   getLessons: (queryString: string = "") => 

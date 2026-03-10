@@ -13,6 +13,7 @@ import AdminPanelSettingsRoundedIcon from "@mui/icons-material/AdminPanelSetting
 import ArrowOutwardRoundedIcon from "@mui/icons-material/ArrowOutwardRounded";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { useRouter } from "next/navigation";
+import { apiClient } from "@/src/lib/apiClient";
 
 import SurfaceCard from "@/src/components/admin/SurfaceCard";
 import AtomBadge from "@/src/components/atoms/AtomBadge";
@@ -47,37 +48,21 @@ export default function LoginPage() {
     setErrorMessage("");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-      const response = await fetch(`${apiUrl}/auth/demo-login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          channel: "web",
-          email,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setErrorMessage(
-          data.message || "데모 로그인에 실패했습니다. 계정 상태를 확인해주세요.",
-        );
-        return;
-      }
+      const data = await apiClient.postAuthGoogle(email);
 
       localStorage.setItem("accessToken", data.accessToken);
       if (data.refreshToken) {
         localStorage.setItem("refreshToken", data.refreshToken);
       }
-      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("user", JSON.stringify(data.user || {}));
+
+      document.cookie = `accessToken=${data.accessToken}; path=/; max-age=3600;`;
+
       router.push("/dashboard");
-    } catch (error) {
+    } catch (error: any) {
       console.error("demo login error:", error);
       setErrorMessage(
-        "서버와 연결할 수 없습니다. 백엔드와 seed 데이터 상태를 확인해주세요.",
+        error.message || "서버와 연결할 수 없습니다. 백엔드 상태를 확인해주세요.",
       );
     } finally {
       setLoadingEmail(null);
@@ -299,7 +284,7 @@ export default function LoginPage() {
               ) : null}
 
               <Typography variant="body2" color="text.secondary" sx={{ pt: 1 }}>
-                © 2026 Settly Corp. All rights reserved.
+                © 2026 free-b Corp. All rights reserved.
               </Typography>
             </Stack>
           </Box>
