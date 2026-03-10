@@ -122,4 +122,28 @@ export const apiClient = {
       method: "POST", 
       body: JSON.stringify({ instructorId }) 
     }),
+
+    // --- 수업 상세 및 액션 ---
+
+  // 수업 상세 조회 API
+  getLessonDetail: (lessonId: string) => 
+    request<any>(`/lessons/${lessonId}`),
+
+  // 수업 수정 API (PATCH)
+  updateLesson: (lessonId: string, payload: any) => 
+    request<any>(`/lessons/${lessonId}`, { 
+      method: "PATCH", 
+      body: JSON.stringify(payload) 
+    }),
+
+  // 수업 취소 API (POST) - DELETE나 PATCH /cancel이 아님을 주의!
+  cancelLesson: (lessonId: string, payload?: any) => 
+    request<any>(`/lessons/${lessonId}/cancel`, { 
+      method: "POST",
+      body: JSON.stringify(payload || {}) 
+    }),
+
+  // (선택) 추천 강사 조회 API
+  getRecommendations: (lessonId: string) => 
+    request<any>(`/lessons/${lessonId}/recommendations`),
 };
