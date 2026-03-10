@@ -3,41 +3,16 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  Box,
-  Typography,
-  Button,
-  Paper,
-  Grid,
-  Chip,
-  CircularProgress,
-  Divider,
-  Alert,
-  Stack,
-  Link,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Drawer,
-  TextField,
-  InputAdornment,
+  Box, Typography, Button, Paper, Grid, Chip, CircularProgress, Divider,
+  Alert, Stack, Link, Dialog, DialogTitle, DialogContent, DialogActions,
+  FormControl, InputLabel, Select, MenuItem, TextField, InputAdornment,
 } from "@mui/material";
 import {
-  ArrowBack,
-  CalendarMonth,
-  LocationOn,
-  Person,
-  AttachMoney,
-  People,
-  Description,
-  Edit,
-  Block,
+  ArrowBack, CalendarMonth, LocationOn, Person, AttachMoney,
+  People, Description, Edit, Block, Map
 } from "@mui/icons-material";
 import { LESSON_STATUS_MAP, type LessonStatus } from "@/src/types/backend";
+import { apiClient } from "@/src/lib/apiClient";
 
 type LessonDetail = {
   lessonId?: string;
@@ -55,6 +30,11 @@ type LessonDetail = {
   instructorName?: string;
   status?: LessonStatus;
   classStatus?: string;
+  venueName?: string;
+  venueAddress?: string;
+  venueLat?: number;
+  venueLng?: number;
+  kakaoPlaceId?: string;
 };
 
 type AvailableInstructor = {
@@ -70,10 +50,7 @@ const CLASS_STATUS_MAP: Record<string, { label: string; color: any }> = {
 };
 
 const getErrorMessage = (error: unknown) => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
+  if (error instanceof Error) return error.message;
   return "알 수 없는 오류가 발생했습니다.";
 };
 
@@ -109,33 +86,15 @@ export default function ClassDetailPage() {
   const [isCanceling, setIsCanceling] = useState(false);
 
   const [editFormData, setEditFormData] = useState({
-    lectureTitle: "",
-    startsAt: "",
-    endsAt: "",
-    payAmount: "",
-    studentCount: "",
-    region: "",
-    museum: "",
-    guideNotionUrl: "",
-    lessonDetails: "",
-    deliveryNotes: "",
+    lectureTitle: "", startsAt: "", endsAt: "", payAmount: "", studentCount: "",
+    region: "", museum: "", venueName: "", venueAddress: "",
+    guideNotionUrl: "", lessonDetails: "", deliveryNotes: "",
   });
 
   const fetchLessonDetail = useCallback(async () => {
+    setIsLoading(true);
     try {
-      const token = localStorage.getItem("accessToken");
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-      const response = await fetch(`${apiUrl}/lessons/${id}`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        if (response.status === 404)
-          throw new Error("존재하지 않거나 삭제된 수업입니다.");
-        throw new Error(`데이터를 불러오지 못했습니다. (${response.status})`);
-      }
-      const data = await response.json();
+      const data = await apiClient.getLessonDetail(id as string);
       setLesson(data.data || data);
     } catch (err: unknown) {
       setError(getErrorMessage(err));
@@ -149,32 +108,16 @@ export default function ClassDetailPage() {
   }, [id, fetchLessonDetail]);
 
   const handleOpenAssignModal = async () => {
-    if (!lesson?.startsAt || !lesson?.endsAt) {
-      alert("수업 시간이 없어 강사 목록을 조회할 수 없습니다.");
-      return;
-    }
-
+    if (!lesson?.startsAt || !lesson?.endsAt) return alert("수업 시간이 없어 강사 목록을 조회할 수 없습니다.");
     setIsAssignModalOpen(true);
     setIsFetchingInstructors(true);
     try {
-      const token = localStorage.getItem("accessToken");
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-      const startUtc = new Date(lesson.startsAt).toISOString();
-      const endUtc = new Date(lesson.endsAt).toISOString();
-
-      const response = await fetch(
-        `${apiUrl}/lessons/available-instructors?startsAt=${startUtc}&endsAt=${endUtc}`,
-        { headers: { Authorization: `Bearer ${token}` } },
+      const data = await apiClient.getAvailableInstructors(
+        new Date(lesson.startsAt).toISOString(), 
+        new Date(lesson.endsAt).toISOString()
       );
-
-      if (!response.ok)
-        throw new Error("가용 강사 목록을 불러오지 못했습니다.");
-
-      const data = await response.json();
       setAvailableInstructors(Array.isArray(data) ? data : data.data || []);
     } catch (err: unknown) {
-      console.error(err);
       alert(getErrorMessage(err));
     } finally {
       setIsFetchingInstructors(false);
@@ -184,29 +127,11 @@ export default function ClassDetailPage() {
   const handleAssignInstructor = async () => {
     if (!selectedInstructorId) return;
     setIsAssigning(true);
-
     try {
-      const token = localStorage.getItem("accessToken");
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-      const response = await fetch(`${apiUrl}/lessons/${id}/assign`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ instructorId: selectedInstructorId }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "강사 배정 요청에 실패했습니다.");
-      }
-
+      await apiClient.assignInstructor(id as string, selectedInstructorId);
       alert("강사에게 배정 요청을 성공적으로 보냈습니다!");
       setIsAssignModalOpen(false);
       setSelectedInstructorId("");
-
       fetchLessonDetail();
     } catch (err: unknown) {
       alert(`배정 요청 실패: ${getErrorMessage(err)}`);
@@ -217,18 +142,9 @@ export default function ClassDetailPage() {
 
   const handleCancelLesson = async () => {
     if (!window.confirm("정말 이 수업을 취소하시겠습니까?")) return;
-
     setIsCanceling(true);
     try {
-      const token = localStorage.getItem("accessToken");
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-      const response = await fetch(`${apiUrl}/lessons/${id}/cancel`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) throw new Error("수업 취소 처리에 실패했습니다.");
-
+      await apiClient.cancelLesson(id as string);
       alert("수업이 취소되었습니다.");
       fetchLessonDetail();
     } catch (err: unknown) {
@@ -239,10 +155,7 @@ export default function ClassDetailPage() {
   };
 
   const handleOpenEdit = () => {
-    if (!lesson) {
-      return;
-    }
-
+    if (!lesson) return;
     setEditFormData({
       lectureTitle: lesson.lectureTitle || "",
       startsAt: formatForInput(lesson.startsAt),
@@ -251,6 +164,8 @@ export default function ClassDetailPage() {
       studentCount: lesson.studentCount != null ? String(lesson.studentCount) : "",
       region: lesson.region || "",
       museum: lesson.museum || "",
+      venueName: lesson.venueName || "",
+      venueAddress: lesson.venueAddress || "",
       guideNotionUrl: lesson.guideNotionUrl || "",
       lessonDetails: lesson.lessonDetails || "",
       deliveryNotes: lesson.deliveryNotes || "",
@@ -258,9 +173,7 @@ export default function ClassDetailPage() {
     setIsEditing(true);
   };
 
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-  };
+  const handleCancelEdit = () => setIsEditing(false);
 
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -273,8 +186,6 @@ export default function ClassDetailPage() {
     }
     setIsUpdating(true);
     try {
-      const token = localStorage.getItem("accessToken");
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
       const payload = {
         ...editFormData,
         payAmount: Number(editFormData.payAmount),
@@ -282,18 +193,7 @@ export default function ClassDetailPage() {
         startsAt: new Date(editFormData.startsAt).toISOString(),
         endsAt: new Date(editFormData.endsAt).toISOString(),
       };
-
-      const response = await fetch(`${apiUrl}/lessons/${id}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) throw new Error("수업 수정에 실패했습니다.");
-
+      await apiClient.updateLesson(id as string, payload);
       alert("정보가 수정되었습니다.");
       setIsEditing(false);
       fetchLessonDetail();
@@ -306,19 +206,9 @@ export default function ClassDetailPage() {
 
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "60vh",
-        }}
-      >
+      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
         <CircularProgress size={40} sx={{ mb: 2 }} />
-        <Typography color="textSecondary">
-          수업 상세 정보를 불러오는 중입니다...
-        </Typography>
+        <Typography color="textSecondary">수업 상세 정보를 불러오는 중입니다...</Typography>
       </Box>
     );
   }
@@ -326,81 +216,76 @@ export default function ClassDetailPage() {
   if (error || !lesson) {
     return (
       <Box sx={{ p: 3 }}>
-        <Button startIcon={<ArrowBack />} onClick={() => router.back()}>
-          목록으로 돌아가기
-        </Button>
-        <Alert severity="error" sx={{ fontSize: "1.1rem", py: 2 }}>
-          {error || "데이터를 찾을 수 없습니다."}
-        </Alert>
+        <Button startIcon={<ArrowBack />} onClick={() => router.back()}>목록으로 돌아가기</Button>
+        <Alert severity="error" sx={{ fontSize: "1.1rem", py: 2, mt: 2 }}>{error || "데이터를 찾을 수 없습니다."}</Alert>
       </Box>
     );
   }
-  const isCanceled =
-    lesson.classStatus === "CANCELLED" || lesson.status === "CANCELLED";
+
+  const isCanceled = lesson.classStatus === "CANCELLED" || lesson.status === "CANCELLED";
   const currentStatus = lesson.classStatus || lesson.status || "";
 
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 10 }}>
-      {/* 상단 뒤로가기 & 헤더 */}
+      {/* 상단 헤더 및 버튼 */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
-        <Button startIcon={<ArrowBack />} onClick={() => router.back()} sx={{ mr: 2 }} disabled={isEditing}>
-          목록
-        </Button>
-        <Typography variant="h5" fontWeight="bold" sx={{ flexGrow: 1 }}>
-          수업 상세 정보
-        </Typography>
+        <Button startIcon={<ArrowBack />} onClick={() => router.back()} sx={{ mr: 2 }} disabled={isEditing}>목록</Button>
+        <Typography variant="h5" fontWeight="bold" sx={{ flexGrow: 1 }}>수업 상세 정보</Typography>
         
         {!isCanceled && (
           <Stack direction="row" spacing={1} sx={{ mr: 2 }}>
             {isEditing ? (
               <>
                 <Button variant="outlined" color="inherit" onClick={handleCancelEdit} disabled={isUpdating}>취소</Button>
-                <Button variant="contained" color="primary" onClick={handleUpdateLesson} disabled={isUpdating}>
-                  {isUpdating ? "저장 중..." : "저장 완료"}
-                </Button>
+                <Button variant="contained" color="primary" onClick={handleUpdateLesson} disabled={isUpdating}>{isUpdating ? "저장 중..." : "저장 완료"}</Button>
               </>
             ) : (
               <>
                 <Button variant="outlined" color="primary" startIcon={<Edit />} onClick={handleOpenEdit}>수정</Button>
-                <Button variant="outlined" color="error" startIcon={<Block />} onClick={handleCancelLesson} disabled={isCanceling}>
-                  {isCanceling ? "취소 중..." : "수업 취소"}
-                </Button>
+                <Button variant="outlined" color="error" startIcon={<Block />} onClick={handleCancelLesson} disabled={isCanceling}>{isCanceling ? "취소 중..." : "수업 취소"}</Button>
               </>
             )}
           </Stack>
         )}
-        <Chip
-          label={CLASS_STATUS_MAP[currentStatus]?.label || currentStatus}
-          color={CLASS_STATUS_MAP[currentStatus]?.color || "warning"}
-          sx={{ fontWeight: "bold", fontSize: "1rem", py: 2.5, px: 1 }}
-        />
+        <Chip label={CLASS_STATUS_MAP[currentStatus]?.label || currentStatus} color={CLASS_STATUS_MAP[currentStatus]?.color || "warning"} sx={{ fontWeight: "bold", fontSize: "1rem", py: 2.5, px: 1 }} />
       </Box>
 
-      {/* 기본 정보 카드 */}
+      {/* 기본 정보 & 장소 카드 */}
       <Paper sx={{ p: 4, borderRadius: 3, mb: 3 }}>
         {isEditing ? (
           <Box sx={{ mb: 3 }}>
-            <TextField label="수업명" name="lectureTitle" value={editFormData.lectureTitle} onChange={handleEditChange} fullWidth sx={{ mb: 2 }} />
+            <TextField label="수업명" name="lectureTitle" value={editFormData.lectureTitle} onChange={handleEditChange} fullWidth sx={{ mb: 3 }} />
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>분류 정보</Typography>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid size={{ xs: 6 }}><TextField label="지역" name="region" value={editFormData.region} onChange={handleEditChange} fullWidth /></Grid>
+              <Grid size={{ xs: 6 }}><TextField label="분류 (박물관/기관)" name="museum" value={editFormData.museum} onChange={handleEditChange} fullWidth /></Grid>
+            </Grid>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>실제 수업 장소 (선택)</Typography>
             <Grid container spacing={2}>
-              <Grid size={{ xs: 6 }}>
-                <TextField label="지역" name="region" value={editFormData.region} onChange={handleEditChange} fullWidth />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField label="박물관/장소" name="museum" value={editFormData.museum} onChange={handleEditChange} fullWidth />
-              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}><TextField label="장소명 (예: 국립중앙박물관 정문)" name="venueName" value={editFormData.venueName} onChange={handleEditChange} fullWidth /></Grid>
+              <Grid size={{ xs: 12, md: 6 }}><TextField label="상세 주소" name="venueAddress" value={editFormData.venueAddress} onChange={handleEditChange} fullWidth /></Grid>
             </Grid>
           </Box>
         ) : (
           <>
             <Typography variant="h4" fontWeight="bold" sx={{ mb: 1 }}>{lesson.lectureTitle}</Typography>
-            <Typography variant="subtitle1" color="textSecondary" sx={{ mb: 4, display: "flex", alignItems: "center", gap: 1 }}>
-              <LocationOn fontSize="small" /> {lesson.region} {lesson.museum && `> ${lesson.museum}`}
-            </Typography>
+            <Stack spacing={1} sx={{ mb: 4 }}>
+              <Typography variant="subtitle1" color="textSecondary" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <LocationOn fontSize="small" /> {lesson.region} {lesson.museum && `> ${lesson.museum}`}
+              </Typography>
+              {(lesson.venueName || lesson.venueAddress) && (
+                <Typography variant="body2" color="textSecondary" sx={{ display: "flex", alignItems: "center", gap: 1, bgcolor: "#f8f9fa", p: 1, borderRadius: 1, width: "fit-content" }}>
+                  <Map fontSize="small" color="primary" /> 
+                  {lesson.venueName} {lesson.venueAddress && `(${lesson.venueAddress})`}
+                </Typography>
+              )}
+            </Stack>
           </>
         )}
 
         <Divider sx={{ mb: 4 }} />
 
+        {/* 일정 및 비용 정보 */}
         <Grid container spacing={4}>
           <Grid size={{ xs: 12, sm: 6 }}>
             <Stack spacing={3}>
