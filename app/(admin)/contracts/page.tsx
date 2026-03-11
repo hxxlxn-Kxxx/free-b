@@ -5,6 +5,10 @@ import {
   Box,
   CircularProgress,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Drawer,
   Grid,
@@ -25,13 +29,13 @@ import {
   PictureAsPdf,
   RadioButtonUnchecked,
   Search,
+  Send,
   VerifiedUser,
 } from "@mui/icons-material";
 
 import PageHeader from "@/src/components/admin/PageHeader";
 import FilterBar from "@/src/components/admin/FilterBar";
 import SurfaceCard from "@/src/components/admin/SurfaceCard";
-import AtomBadge from "@/src/components/atoms/AtomBadge";
 import AtomButton from "@/src/components/atoms/AtomButton";
 import AtomInput from "@/src/components/atoms/AtomInput";
 import { apiClient } from "@/src/lib/apiClient";
@@ -47,22 +51,17 @@ import {
 type ContractRow = {
   id: string;
   contractId?: string;
-  /** 계약 번호 문자열 (없으면 id 사용) */
   contractNumber?: string;
-  /** 강사명 */
   instructorName?: string;
   instructor?: { name?: string };
-  /** 수업명 */
   lessonTitle?: string;
   lesson?: { title?: string; lectureTitle?: string };
   status: ContractStatus;
   createdAt?: string;
-  /** 최신 버전 정보 */
   latestVersion?: {
     documentHashSha256?: string;
     [key: string]: any;
   };
-  /** 서명 목록 */
   signatures?: Array<{
     signerRole?: "INSTRUCTOR" | "ADMIN" | string;
     signedAt?: string;
@@ -72,22 +71,14 @@ type ContractRow = {
 };
 
 // ─────────────────────────────────────────────
-// 상태 → AtomBadge tone 매핑
+// 상수
 // ─────────────────────────────────────────────
-const CONTRACT_TONE_MAP: Record<ContractStatus, string> = {
-  DRAFT: "draft",
-  SENT: "sent",
-  INSTRUCTOR_SIGNED: "viewed",
-  FULLY_SIGNED: "signed",
-  VOID: "cancelled",
-};
-
 const STATUS_OPTIONS: Array<{ label: string; value: string }> = [
   { label: "전체", value: "" },
   { label: "초안", value: "DRAFT" },
   { label: "발송", value: "SENT" },
-  { label: "열람", value: "INSTRUCTOR_SIGNED" },
-  { label: "서명완료", value: "FULLY_SIGNED" },
+  { label: "강사 서명 완료", value: "INSTRUCTOR_SIGNED" },
+  { label: "최종 서명 완료", value: "FULLY_SIGNED" },
   { label: "무효", value: "VOID" },
 ];
 
@@ -120,7 +111,7 @@ function formatDateTime(iso?: string): string {
 }
 
 // ─────────────────────────────────────────────
-// 컴포넌트
+// 메인 컴포넌트
 // ─────────────────────────────────────────────
 export default function ContractsPage() {
   const [contracts, setContracts] = useState<ContractRow[]>([]);
@@ -134,6 +125,19 @@ export default function ContractsPage() {
   // 필터 상태
   const [filterName, setFilterName] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+
+  // ── 새 계약 생성 모달 상태
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createLessonId, setCreateLessonId] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+
+  // ── 드로어 액션 로딩 상태
+  const [isSending, setIsSending] = useState(false);
+  const [isReauthing, setIsReauthing] = useState(false);
+  const [isSigning, setIsSigning] = useState(false);
+
+  // 재인증 토큰 (sign 직전 reauth 결과 보관)
+  const [reauthToken, setReauthToken] = useState<string | null>(null);
 
   // ── 목록 API 조회
   const fetchContracts = useCallback(async () => {
@@ -168,6 +172,7 @@ export default function ContractsPage() {
   useEffect(() => {
     if (!selectedId) {
       setDrawerContract(null);
+      setReauthToken(null);
       return;
     }
     const fetchDetail = async () => {
@@ -185,31 +190,125 @@ export default function ContractsPage() {
     fetchDetail();
   }, [selectedId]);
 
-  // ── 클라이언트 측 이름 필터 (서버 필터 미지원 대비)
+  // ── 클라이언트 측 이름 필터
   const filtered = contracts.filter((row) => {
-    const nameMatch =
-      !filterName ||
-      resolveInstructorName(row).includes(filterName);
-    const statusMatch =
-      !filterStatus || row.status === filterStatus;
+    const nameMatch = !filterName || resolveInstructorName(row).includes(filterName);
+    const statusMatch = !filterStatus || row.status === filterStatus;
     return nameMatch && statusMatch;
   });
 
   // ── 서명 현황 추출
-  const instructorSig = drawerContract?.signatures?.find(
-    (s) => s.signerRole === "INSTRUCTOR"
-  );
-  const adminSig = drawerContract?.signatures?.find(
-    (s) => s.signerRole === "ADMIN"
-  );
+  const instructorSig = drawerContract?.signatures?.find((s) => s.signerRole === "INSTRUCTOR");
+  const adminSig = drawerContract?.signatures?.find((s) => s.signerRole === "ADMIN");
+
+  const contractId = drawerContract?.contractId ?? drawerContract?.id ?? "";
+
+  // ── 새 계약 생성 핸들러
+  const handleCreateContract = async () => {
+    if (!createLessonId.trim()) return alert("수업 ID를 입력해주세요.");
+    setIsCreating(true);
+    try {
+      await apiClient.createContract({ lessonId: createLessonId.trim() });
+      alert("계약이 생성되었습니다. (DRAFT 상태)");
+      setIsCreateOpen(false);
+      setCreateLessonId("");
+      fetchContracts();
+    } catch (err: any) {
+      alert(err.message || "계약 생성에 실패했습니다.");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // ── 발송 핸들러
+  const handleSend = async () => {
+    if (!contractId) return;
+    if (!window.confirm("강사에게 계약서를 발송하시겠습니까?")) return;
+    setIsSending(true);
+    try {
+      const updated = await apiClient.sendContract(contractId);
+      alert("계약서가 발송되었습니다.");
+      setDrawerContract((prev) => (prev ? { ...prev, ...(updated?.data ?? updated) } : prev));
+      fetchContracts();
+    } catch (err: any) {
+      alert(err.message || "발송에 실패했습니다.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // ── 재인증 후 관리자 서명 핸들러
+  const handleReauthAndSign = async () => {
+    if (!contractId) return;
+    // Step 1: 재인증 토큰 발급
+    if (!reauthToken) {
+      setIsReauthing(true);
+      try {
+        const res = await apiClient.reauthContract(contractId);
+        const token = res?.reauthToken ?? res?.token ?? res;
+        if (!token || typeof token !== "string") {
+          throw new Error("재인증 토큰을 받지 못했습니다.");
+        }
+        setReauthToken(token);
+        alert("재인증 완료. 아래 '서명하기' 버튼을 눌러 관리자 서명을 완료하세요.");
+      } catch (err: any) {
+        alert(err.message || "재인증에 실패했습니다.");
+      } finally {
+        setIsReauthing(false);
+      }
+      return;
+    }
+
+    // Step 2: 서명
+    setIsSigning(true);
+    try {
+      const updated = await apiClient.signContract(contractId, { reauthToken });
+      alert("관리자 서명이 완료되었습니다!");
+      setDrawerContract((prev) => (prev ? { ...prev, ...(updated?.data ?? updated) } : prev));
+      setReauthToken(null);
+      fetchContracts();
+    } catch (err: any) {
+      alert(err.message || "서명에 실패했습니다.");
+    } finally {
+      setIsSigning(false);
+    }
+  };
 
   return (
     <Box>
       <PageHeader
         title="계약 관리"
         description="계약 생성, 발송, 서명 진행 상태를 한 흐름으로 확인합니다."
-        action={<AtomButton startIcon={<Add />}>새 계약 생성</AtomButton>}
+        action={
+          <AtomButton startIcon={<Add />} onClick={() => setIsCreateOpen(true)}>
+            새 계약 생성
+          </AtomButton>
+        }
       />
+
+      {/* ── 새 계약 생성 다이얼로그 */}
+      <Dialog open={isCreateOpen} onClose={() => setIsCreateOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle fontWeight="bold">새 계약 생성</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+            수업 ID를 입력하면 해당 수업에 대한 초안(DRAFT) 계약서가 생성됩니다.
+          </Typography>
+          <AtomInput
+            label="수업 ID (lessonId)"
+            value={createLessonId}
+            onChange={(e) => setCreateLessonId(e.target.value)}
+            placeholder="예: L_001"
+            fullWidth
+            required
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <AtomButton atomVariant="ghost" onClick={() => setIsCreateOpen(false)} disabled={isCreating}>취소</AtomButton>
+          <AtomButton onClick={handleCreateContract} disabled={isCreating || !createLessonId.trim()}>
+            {isCreating ? "생성 중..." : "생성하기"}
+          </AtomButton>
+        </DialogActions>
+      </Dialog>
 
       {/* ── 필터바 */}
       <FilterBar>
@@ -267,19 +366,17 @@ export default function ContractsPage() {
                 </TableRow>
               ) : (
                 filtered.map((row) => {
-                  const contractId = row.contractId ?? row.id;
+                  const cId = row.contractId ?? row.id;
                   const rowStatus = row.status as ContractStatus;
                   return (
-                    <TableRow key={contractId} hover>
+                    <TableRow key={cId} hover>
                       <TableCell align="center" sx={{ fontWeight: 600, fontFamily: "monospace" }}>
-                        {row.contractNumber ?? contractId}
+                        {row.contractNumber ?? cId}
                       </TableCell>
                       <TableCell align="center" sx={{ fontWeight: 600 }}>
                         {resolveInstructorName(row)}
                       </TableCell>
-                      <TableCell align="center">
-                        {resolveLessonTitle(row)}
-                      </TableCell>
+                      <TableCell align="center">{resolveLessonTitle(row)}</TableCell>
                       <TableCell align="center">
                         <Chip
                           label={CONTRACT_STATUS_MAP[rowStatus] ?? rowStatus}
@@ -288,14 +385,12 @@ export default function ContractsPage() {
                           sx={{ fontWeight: 700 }}
                         />
                       </TableCell>
-                      <TableCell align="center">
-                        {formatDate(row.createdAt)}
-                      </TableCell>
+                      <TableCell align="center">{formatDate(row.createdAt)}</TableCell>
                       <TableCell align="center">
                         <AtomButton
                           atomVariant="outline"
                           size="small"
-                          onClick={() => setSelectedId(contractId)}
+                          onClick={() => setSelectedId(cId)}
                         >
                           보기
                         </AtomButton>
@@ -310,35 +405,18 @@ export default function ContractsPage() {
       )}
 
       {/* ── 상세 드로어 */}
-      <Drawer
-        anchor="right"
-        open={Boolean(selectedId)}
-        onClose={() => setSelectedId(null)}
-      >
-        <Box
-          sx={{
-            width: 480,
-            p: 4,
-            display: "flex",
-            flexDirection: "column",
-            height: "100%",
-            backgroundColor: "#FFF9EF",
-          }}
-        >
+      <Drawer anchor="right" open={Boolean(selectedId)} onClose={() => setSelectedId(null)}>
+        <Box sx={{ width: 480, p: 4, display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#FFF9EF" }}>
           {isDrawerLoading ? (
             <Box display="flex" justifyContent="center" alignItems="center" flexGrow={1}>
               <CircularProgress />
             </Box>
           ) : !drawerContract ? (
-            <Typography color="error" sx={{ mt: 4 }}>
-              계약 정보를 불러올 수 없습니다.
-            </Typography>
+            <Typography color="error" sx={{ mt: 4 }}>계약 정보를 불러올 수 없습니다.</Typography>
           ) : (
             <>
               {/* 헤더 */}
-              <Typography variant="h4" sx={{ mb: 0.5 }}>
-                계약 상세 정보
-              </Typography>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>계약 상세 정보</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                 계약 번호: {drawerContract.contractNumber ?? drawerContract.contractId ?? drawerContract.id}
               </Typography>
@@ -351,12 +429,7 @@ export default function ContractsPage() {
               <SurfaceCard sx={{ p: 3, mb: 3, backgroundColor: "#FFFCF5", boxShadow: "none" }}>
                 <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 2 }}>
                   <VerifiedUser
-                    sx={{
-                      color:
-                        drawerContract.status === "FULLY_SIGNED"
-                          ? "#2F6B2F"
-                          : "#B7791F",
-                    }}
+                    sx={{ color: drawerContract.status === "FULLY_SIGNED" ? "#2F6B2F" : "#B7791F" }}
                   />
                   <Chip
                     label={CONTRACT_STATUS_MAP[drawerContract.status] ?? drawerContract.status}
@@ -367,9 +440,7 @@ export default function ContractsPage() {
                 </Stack>
 
                 {/* 서명 현황 */}
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                  서명 현황
-                </Typography>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>서명 현황</Typography>
                 <Stack spacing={1}>
                   {/* 강사 서명 */}
                   <Stack direction="row" spacing={1} alignItems="center">
@@ -415,19 +486,8 @@ export default function ContractsPage() {
                 {/* 문서 해시 */}
                 {drawerContract.latestVersion?.documentHashSha256 && (
                   <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid #EBDDC3" }}>
-                    <Typography variant="caption" color="text.secondary">
-                      문서 해시 (SHA-256)
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        display: "block",
-                        fontFamily: "monospace",
-                        wordBreak: "break-all",
-                        color: "text.secondary",
-                        mt: 0.5,
-                      }}
-                    >
+                    <Typography variant="caption" color="text.secondary">문서 해시 (SHA-256)</Typography>
+                    <Typography variant="caption" sx={{ display: "block", fontFamily: "monospace", wordBreak: "break-all", color: "text.secondary", mt: 0.5 }}>
                       {drawerContract.latestVersion.documentHashSha256}
                     </Typography>
                   </Box>
@@ -437,9 +497,7 @@ export default function ContractsPage() {
               {/* 진행 로그 */}
               <SurfaceCard sx={{ p: 3, mb: 3 }}>
                 <Stack spacing={1.5}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    진행 로그
-                  </Typography>
+                  <Typography variant="subtitle2" color="text.secondary">진행 로그</Typography>
                   <Stack direction="row" spacing={1.5} alignItems="center">
                     <HistoryEdu sx={{ color: "#B7791F" }} />
                     <Typography variant="body2">
@@ -471,17 +529,49 @@ export default function ContractsPage() {
                 계약서 원본 PDF 열람
               </AtomButton>
 
-              {/* 액션 버튼 */}
+              {/* 액션 버튼 영역 */}
               <Box sx={{ pt: 3, borderTop: "1px solid #EBDDC3" }}>
-                {drawerContract.status !== "FULLY_SIGNED" &&
-                  drawerContract.status !== "VOID" && (
-                    <AtomButton sx={{ width: "100%", mb: 1.25 }}>
-                      재발송 및 서명 요청
-                    </AtomButton>
-                  )}
-                <AtomButton atomVariant="danger" sx={{ width: "100%" }}>
-                  계약 종료 처리
-                </AtomButton>
+                {/* DRAFT → 발송 */}
+                {drawerContract.status === "DRAFT" && (
+                  <AtomButton
+                    startIcon={<Send />}
+                    sx={{ width: "100%", mb: 1.25 }}
+                    onClick={handleSend}
+                    disabled={isSending}
+                  >
+                    {isSending ? "발송 중..." : "계약서 발송하기"}
+                  </AtomButton>
+                )}
+
+                {/* SENT → 재발송 (재인증 없이 다시 발송) */}
+                {drawerContract.status === "SENT" && (
+                  <AtomButton
+                    atomVariant="outline"
+                    startIcon={<Send />}
+                    sx={{ width: "100%", mb: 1.25 }}
+                    onClick={handleSend}
+                    disabled={isSending}
+                  >
+                    {isSending ? "재발송 중..." : "재발송 (서명 요청)"}
+                  </AtomButton>
+                )}
+
+                {/* INSTRUCTOR_SIGNED → 관리자 재인증 & 서명 */}
+                {drawerContract.status === "INSTRUCTOR_SIGNED" && !adminSig && (
+                  <AtomButton
+                    sx={{ width: "100%", mb: 1.25 }}
+                    onClick={handleReauthAndSign}
+                    disabled={isReauthing || isSigning}
+                  >
+                    {isReauthing
+                      ? "재인증 중..."
+                      : isSigning
+                      ? "서명 처리 중..."
+                      : reauthToken
+                      ? "관리자 서명하기 (재인증 완료)"
+                      : "재인증 후 서명하기"}
+                  </AtomButton>
+                )}
               </Box>
             </>
           )}

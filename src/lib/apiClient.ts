@@ -102,6 +102,22 @@ export const apiClient = {
   getContracts: (params?: string) => request<any>(`/contracts${params ? `?${params}` : ""}`),
   getContractById: (contractId: string) => request<any>(`/contracts/${contractId}`),
 
+  // 계약 생성 (관리자) - POST /contracts
+  createContract: (payload: { lessonId: string; documentFileKey?: string | null }) =>
+    request<any>("/contracts", { method: "POST", body: JSON.stringify(payload) }),
+
+  // 계약 발송 (관리자) - POST /contracts/:contractId/send
+  sendContract: (contractId: string) =>
+    request<any>(`/contracts/${contractId}/send`, { method: "POST" }),
+
+  // 재인증 토큰 발급 (서명 전 재인증) - POST /contracts/:contractId/reauth
+  reauthContract: (contractId: string) =>
+    request<any>(`/contracts/${contractId}/reauth`, { method: "POST" }),
+
+  // 관리자 서명 - POST /contracts/:contractId/sign
+  signContract: (contractId: string, payload: { reauthToken: string }) =>
+    request<any>(`/contracts/${contractId}/sign`, { method: "POST", body: JSON.stringify(payload) }),
+
   // --- Attendance ---
   getAttendances: () => request<any>("/attendances"),
   getAttendanceEvents: (params: { lessonId?: string; eventType?: string }) => {
