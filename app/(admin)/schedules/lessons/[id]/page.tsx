@@ -166,7 +166,7 @@ function RecommendationsPanel({
     setExpandedRecs((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const { data: recsData, isLoading, error: queryError, refetch } = useQuery({
+  const { data: recsData, isLoading, isFetching, error: queryError, refetch } = useQuery({
     queryKey: ["recommendations", lessonId],
     queryFn: async () => {
       const data = await apiClient.getRecommendations(lessonId);
@@ -191,9 +191,22 @@ function RecommendationsPanel({
             수업 일정·지역·강사 이력을 종합해 추천된 강사 목록입니다.
           </Typography>
         </Box>
-        {!isCanceled && (
-          <Button variant="outlined" size="small" onClick={() => onAssign()}>직접 배정하기</Button>
-        )}
+        <Stack direction="row" spacing={1} sx={{ mt: { xs: 1, sm: 0 } }}>
+          <Button 
+            variant="text" 
+            color="inherit" 
+            size="small" 
+            startIcon={isFetching ? <CircularProgress size={16} color="inherit" /> : <Refresh />} 
+            onClick={loadRecs}
+            disabled={isFetching}
+            sx={{ borderRadius: 2, color: "text.secondary" }}
+          >
+            추천 새로고침
+          </Button>
+          {!isCanceled && (
+            <Button variant="outlined" size="small" onClick={() => onAssign()}>직접 배정하기</Button>
+          )}
+        </Stack>
       </Stack>
 
       {isLoading ? (
@@ -251,8 +264,9 @@ function RecommendationsPanel({
             <Button 
               variant="text" 
               color="inherit"
-              startIcon={<Refresh />}
+              startIcon={isFetching ? <CircularProgress size={16} color="inherit" /> : <Refresh />}
               onClick={loadRecs}
+              disabled={isFetching}
               sx={{ borderRadius: 2, color: "text.secondary" }}
             >
               새로고침
@@ -726,6 +740,7 @@ export default function ClassDetailPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.lessons.detail(lessonIdStr) });
       queryClient.invalidateQueries({ queryKey: queryKeys.lessons.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      queryClient.invalidateQueries({ queryKey: ["recommendations", lessonIdStr] });
     },
     onError: (err) => {
       alert(`취소 실패: ${getErrorMessage(err)}`);
@@ -778,6 +793,7 @@ export default function ClassDetailPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.lessons.detail(lessonIdStr) });
       queryClient.invalidateQueries({ queryKey: queryKeys.lessons.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      queryClient.invalidateQueries({ queryKey: ["recommendations", lessonIdStr] });
     },
     onError: (err) => {
       alert(`수정 실패: ${getErrorMessage(err)}`);
