@@ -6,13 +6,13 @@ import {
   Box, Typography, Button, Paper, Grid, Chip, CircularProgress, Divider,
   Alert, Stack, Link, Dialog, DialogTitle, DialogContent, DialogActions,
   FormControl, InputLabel, Select, MenuItem, TextField, InputAdornment,
-  Tab, Tabs,
+  Tab, Tabs, Collapse, IconButton,
 } from "@mui/material";
 import {
   ArrowBack, CalendarMonth, LocationOn, Person, AttachMoney,
   People, Description, Edit, Block, Map,
   DirectionsWalk, Place, CheckCircle, AccessTime, MyLocation,
-  Refresh, AssignmentInd, InfoOutlined, AutoAwesome,
+  Refresh, AssignmentInd, InfoOutlined, AutoAwesome, ExpandMore, ExpandLess, BugReport,
 } from "@mui/icons-material";
 import {
   LESSON_STATUS_MAP, type LessonStatus, LESSON_SOURCE_TYPE_MAP, type LessonSourceType,
@@ -160,6 +160,11 @@ function RecommendationsPanel({
   const [recs, setRecs] = useState<Recommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedRecs, setExpandedRecs] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (id: string) => {
+    setExpandedRecs((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const loadRecs = async () => {
     setIsLoading(true);
@@ -263,99 +268,155 @@ function RecommendationsPanel({
         </Box>
       ) : (
         <Stack spacing={2}>
-          {recs.map((rec, idx) => (
-            <Paper
-              key={rec.instructorId}
-              elevation={0}
-              sx={{
-                p: 3, border: "1px solid #E8E8E8", borderRadius: 2,
-                borderLeft: `4px solid ${idx === 0 ? "#F3C742" : "#E0E0E0"}`,
-              }}
-            >
-              <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
-                <Box sx={{ flex: 1 }}>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                    {idx === 0 && (
-                      <Chip label="추천 1순위" size="small" sx={{ bgcolor: "#FFF8E1", color: "#B7791F", fontWeight: 700, fontSize: "0.7rem" }} />
-                    )}
-                    <Typography fontWeight="bold">{rec.name}</Typography>
-                    {rec.majorField && (
-                      <Typography variant="caption" color="text.secondary">{rec.majorField}</Typography>
-                    )}
-                    {rec.confidenceLabel && (
-                      <Chip label={rec.confidenceLabel} size="small" variant="outlined" sx={{ fontSize: "0.7rem", height: 20 }} color="primary" />
-                    )}
-                  </Stack>
-
-                  {/* 핵심 추천 사유 및 설명 */}
-                  {rec.primaryReason && (
-                    <Typography variant="body2" fontWeight="bold" color="primary.main" sx={{ mb: 0.5 }}>
-                      ✨ {rec.primaryReason}
-                    </Typography>
-                  )}
-                  {rec.fitSummary && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      {rec.fitSummary}
-                    </Typography>
-                  )}
-
-                  {/* 추천 이유 */}
-                  {rec.reasons?.length > 0 && (
-                    <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1 }}>
-                      {rec.reasons.map((r) => (
-                        <Chip key={r} label={r} size="small" sx={{ bgcolor: "#E8F5E9", color: "#2E7D32", fontSize: "0.7rem" }} />
-                      ))}
+          {recs.map((rec, idx) => {
+            const isExpanded = !!expandedRecs[rec.instructorId || idx];
+            return (
+              <Paper
+                key={rec.instructorId}
+                elevation={0}
+                sx={{
+                  p: 3, border: "1px solid #E8E8E8", borderRadius: 2,
+                  borderLeft: `4px solid ${idx === 0 ? "#F3C742" : "#E0E0E0"}`,
+                }}
+              >
+                <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
+                  <Box sx={{ flex: 1 }}>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                      {idx === 0 && (
+                        <Chip label="추천 1순위" size="small" sx={{ bgcolor: "#FFF8E1", color: "#B7791F", fontWeight: 700, fontSize: "0.7rem" }} />
+                      )}
+                      <Typography fontWeight="bold">{rec.name}</Typography>
+                      {rec.majorField && (
+                        <Typography variant="caption" color="text.secondary">{rec.majorField}</Typography>
+                      )}
+                      {rec.confidenceLabel && (
+                        <Chip label={rec.confidenceLabel} size="small" variant="outlined" sx={{ fontSize: "0.7rem", height: 20 }} color="primary" />
+                      )}
                     </Stack>
-                  )}
 
-                  {/* 리스크 플래그 */}
-                  {rec.riskFlags?.length > 0 && (
-                    <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1 }}>
-                      {rec.riskFlags.map((r) => (
-                        <Chip key={r} label={r} size="small" sx={{ bgcolor: "#FFF3E0", color: "#E65100", fontSize: "0.7rem" }} />
-                      ))}
-                    </Stack>
-                  )}
-
-                  {/* 이동 관련 정보 & metrics */}
-                  <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mt: 1, alignItems: "center" }}>
-                    {(rec.distanceKm !== undefined || rec.etaMinutes !== undefined) && (
-                      <Typography variant="caption" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                        🚗 {rec.distanceKm !== undefined ? `${rec.distanceKm.toFixed(1)}km` : ""}
-                        {rec.distanceKm !== undefined && rec.etaMinutes !== undefined ? " / " : ""}
-                        {rec.etaMinutes !== undefined ? `약 ${rec.etaMinutes}분` : ""}
+                    {/* 핵심 추천 사유 및 설명 */}
+                    {rec.primaryReason && (
+                      <Typography variant="body2" fontWeight="bold" color="primary.main" sx={{ mb: 0.5 }}>
+                        ✨ {rec.primaryReason}
                       </Typography>
                     )}
-                    <Typography variant="caption" color="text.secondary">
-                      수락률 {Math.round((rec.metrics?.acceptanceRate || 0) * 100)}%
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      90일 완료 {rec.metrics?.completedLessonCount90d || 0}건
-                    </Typography>
-                    <Typography variant="caption" color={(rec.metrics?.lateCount90d || 0) > 0 ? "error" : "text.secondary"}>
-                      지각 {rec.metrics?.lateCount90d || 0}건
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      가용 슬롯 {rec.metrics?.matchingSlotCount || 0}개
-                    </Typography>
-                  </Stack>
-                </Box>
+                    {rec.fitSummary && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {rec.fitSummary}
+                      </Typography>
+                    )}
 
-                {/* 점수 뱃지 */}
-                <Box
-                  sx={{
-                    ml: 2, minWidth: 52, textAlign: "center",
-                    bgcolor: rec.score >= 70 ? "#E8F5E9" : "#FFF3E0",
-                    color: rec.score >= 70 ? "#2E7D32" : "#E65100",
-                    borderRadius: 2, px: 1.5, py: 0.75,
-                  }}
-                >
-                  <Typography variant="h6" fontWeight="bold" lineHeight={1}>{rec.score}</Typography>
-                  <Typography variant="caption">점</Typography>
-                </Box>
-              </Stack>
-            </Paper>
-          ))}
+                    {/* 이동 관련 정보 기본 (가시성 높은 영역) */}
+                    <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mt: 1, alignItems: "center" }}>
+                      {(rec.distanceKm !== undefined || rec.etaMinutes !== undefined) && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          🚗 {rec.distanceKm !== undefined ? `${rec.distanceKm.toFixed(1)}km` : ""}
+                          {rec.distanceKm !== undefined && rec.etaMinutes !== undefined ? " / " : ""}
+                          {rec.etaMinutes !== undefined ? `약 ${rec.etaMinutes}분` : ""}
+                        </Typography>
+                      )}
+                    </Stack>
+                  </Box>
+
+                  {/* 점수 뱃지 */}
+                  <Box
+                    sx={{
+                      ml: 2, minWidth: 52, textAlign: "center",
+                      bgcolor: rec.score >= 70 ? "#E8F5E9" : "#FFF3E0",
+                      color: rec.score >= 70 ? "#2E7D32" : "#E65100",
+                      borderRadius: 2, px: 1.5, py: 0.75,
+                    }}
+                  >
+                    <Typography variant="h6" fontWeight="bold" lineHeight={1}>{rec.score}</Typography>
+                    <Typography variant="caption">점</Typography>
+                  </Box>
+                </Stack>
+
+                {/* --- 운영자 점검용 디버그 토글 영역 --- */}
+                <Divider sx={{ my: 2, borderColor: "dashed" }} />
+                
+                <Stack direction="row" alignItems="center" justifyContent="space-between">
+                  <Button
+                    size="small"
+                    color="inherit"
+                    startIcon={<BugReport sx={{ fontSize: 16 }} />}
+                    endIcon={isExpanded ? <ExpandLess /> : <ExpandMore />}
+                    onClick={() => toggleExpand(rec.instructorId || String(idx))}
+                    sx={{ color: "text.secondary", fontSize: "0.75rem", px: 1 }}
+                  >
+                    근거 및 상세 지표 {isExpanded ? "접기" : "보기"}
+                  </Button>
+                  
+                  {/* 리스크 플래그 요약 (접혀있을 때만 위험 경고) */}
+                  {!isExpanded && rec.riskFlags?.length > 0 && (
+                    <Typography variant="caption" color="error.main" fontWeight="bold">
+                      ⚠️ 리스크 {rec.riskFlags.length}건
+                    </Typography>
+                  )}
+                </Stack>
+
+                <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                  <Box sx={{ mt: 2, p: 2, bgcolor: "#FAFAFA", borderRadius: 2, border: "1px solid #EEEEEE" }}>
+                    <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                      추천 점수 구성 근거 (Reasons)
+                    </Typography>
+                    {rec.reasons?.length > 0 ? (
+                      <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 2 }}>
+                        {rec.reasons.map((r) => (
+                          <Chip key={r} label={r} size="small" sx={{ bgcolor: "#E8F5E9", color: "#2E7D32", fontSize: "0.7rem" }} />
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>데이터 없음</Typography>
+                    )}
+
+                    <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                      리스크 요인 (Risk Flags)
+                    </Typography>
+                    {rec.riskFlags?.length > 0 ? (
+                      <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 2 }}>
+                        {rec.riskFlags.map((r) => (
+                          <Chip key={r} label={r} size="small" sx={{ bgcolor: "#FFF3E0", color: "#E65100", fontSize: "0.7rem" }} />
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>위험 플래그 없음</Typography>
+                    )}
+
+                    <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                      상세 매트릭스 (Metrics)
+                    </Typography>
+                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(4, 1fr)" }, gap: 1 }}>
+                      <Paper elevation={0} sx={{ p: 1, bgcolor: "#FFF", border: "1px solid #E0E0E0" }}>
+                        <Typography variant="caption" color="text.secondary" display="block">수락률</Typography>
+                        <Typography variant="body2" fontWeight="bold">
+                          {Math.round((rec.metrics?.acceptanceRate || 0) * 100)}%
+                        </Typography>
+                      </Paper>
+                      <Paper elevation={0} sx={{ p: 1, bgcolor: "#FFF", border: "1px solid #E0E0E0" }}>
+                        <Typography variant="caption" color="text.secondary" display="block">90일 완료</Typography>
+                        <Typography variant="body2" fontWeight="bold">
+                          {rec.metrics?.completedLessonCount90d || 0}건
+                        </Typography>
+                      </Paper>
+                      <Paper elevation={0} sx={{ p: 1, bgcolor: "#FFF", border: "1px solid #E0E0E0" }}>
+                        <Typography variant="caption" color="text.secondary" display="block">지각</Typography>
+                        <Typography variant="body2" fontWeight="bold" color={(rec.metrics?.lateCount90d || 0) > 0 ? "error" : "inherit"}>
+                          {rec.metrics?.lateCount90d || 0}건
+                        </Typography>
+                      </Paper>
+                      <Paper elevation={0} sx={{ p: 1, bgcolor: "#FFF", border: "1px solid #E0E0E0" }}>
+                        <Typography variant="caption" color="text.secondary" display="block">가용 슬롯</Typography>
+                        <Typography variant="body2" fontWeight="bold">
+                          {rec.metrics?.matchingSlotCount || 0}개
+                        </Typography>
+                      </Paper>
+                    </Box>
+                  </Box>
+                </Collapse>
+              </Paper>
+            );
+          })}
         </Stack>
       )}
     </Paper>
