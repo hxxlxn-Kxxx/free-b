@@ -88,6 +88,14 @@ export const apiClient = {
       body: JSON.stringify({ channel: "web", email })
     }),
 
+  logout: () => {
+    if (typeof window !== "undefined") {
+      localStorage.clear();
+      document.cookie = "accessToken=; path=/; max-age=0;";
+      window.location.href = "/login";
+    }
+  },
+
   // --- Lessons ---
   getLessons: (queryString: string = "") => 
     request<any>(`/lessons${queryString ? `?${queryString}` : ""}`),
