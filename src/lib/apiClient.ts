@@ -210,4 +210,27 @@ export const apiClient = {
   // 강의 보고서 조회 - GET /lesson-reports?lessonId=
   getLessonReports: (lessonId: string) =>
     request<any>(`/lesson-reports?lessonId=${lessonId}`),
+
+  // ==========================================
+  // 수업 장소 관리 (Lesson Locations)
+  // ==========================================
+  getLessonLocations: (params?: { query?: string; status?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.query) searchParams.append("query", params.query);
+    if (params?.status) searchParams.append("status", params.status);
+    const qs = searchParams.toString();
+    return request<any>(`/lesson-locations${qs ? `?${qs}` : ""}`);
+  },
+  getLessonLocationById: (locationId: string) =>
+    request<any>(`/lesson-locations/${locationId}`),
+  createLessonLocation: (data: any) =>
+    request<any>("/lesson-locations", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateLessonLocation: (locationId: string, data: any) =>
+    request<any>(`/lesson-locations/${locationId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 };
