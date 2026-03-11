@@ -16,7 +16,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const token = getToken();
 
   const headers = new Headers(options.headers);
-  if (!headers.has("Content-Type")) {
+  if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
   if (token) {
@@ -232,5 +232,34 @@ export const apiClient = {
     request<any>(`/lesson-locations/${locationId}`, {
       method: "PATCH",
       body: JSON.stringify(data),
+    }),
+
+  // ==========================================
+  // 외부 계약서 관리 (Documents)
+  // ==========================================
+  uploadDocument: (file: File, type: "CONTRACT_IMAGE" | "CONTRACT_PDF") => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", type);
+    return request<any>("/documents/upload", {
+      method: "POST",
+      body: formData,
+    });
+  },
+  extractDocumentDraft: (documentId: string, ocrText?: string, clientMetadata?: Record<string, unknown>) =>
+    request<any>(`/documents/${documentId}/extract`, {
+      method: "POST",
+      body: JSON.stringify({ ocrText, clientMetadata }),
+    }),
+  getDocument: (documentId: string) =>
+    request<any>(`/documents/${documentId}`),
+  updateDocumentDraft: (documentId: string, parsedJson: object) =>
+    request<any>(`/documents/${documentId}/draft`, {
+      method: "PATCH",
+      body: JSON.stringify({ parsedJson }),
+    }),
+  confirmDocument: (documentId: string) =>
+    request<any>(`/documents/${documentId}/confirm`, {
+      method: "POST",
     }),
 };

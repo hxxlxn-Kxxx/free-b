@@ -43,6 +43,7 @@ import {
   ContractStatus,
   CONTRACT_STATUS_MAP,
   getContractStatusColor,
+  LESSON_SOURCE_TYPE_MAP,
 } from "@/src/types/backend";
 
 // ─────────────────────────────────────────────
@@ -55,7 +56,7 @@ type ContractRow = {
   instructorName?: string;
   instructor?: { name?: string };
   lessonTitle?: string;
-  lesson?: { title?: string; lectureTitle?: string };
+  lesson?: { title?: string; lectureTitle?: string; sourceType?: string };
   status: ContractStatus;
   createdAt?: string;
   latestVersion?: {
@@ -89,13 +90,28 @@ function resolveInstructorName(row: ContractRow): string {
   return row.instructorName || row.instructor?.name || "-";
 }
 
-function resolveLessonTitle(row: ContractRow): string {
-  return (
-    row.lessonTitle ||
-    row.lesson?.title ||
-    row.lesson?.lectureTitle ||
-    "-"
-  );
+function resolveLessonTitle(row: ContractRow): React.ReactNode {
+  const title = row.lessonTitle || row.lesson?.title || row.lesson?.lectureTitle || "-";
+  if (row.lesson?.sourceType === "EXTERNAL_DOCUMENT") {
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
+        {title}
+        <Chip
+          label={LESSON_SOURCE_TYPE_MAP.EXTERNAL_DOCUMENT?.label || "외부 계약서"}
+          size="small"
+          sx={{
+            fontSize: "0.65rem",
+            bgcolor: "#FFF3E0",
+            color: "#E65100",
+            fontWeight: 700,
+            border: "1px solid #FFB74D",
+            height: 20,
+          }}
+        />
+      </Box>
+    );
+  }
+  return title;
 }
 
 function formatDate(iso?: string): string {
