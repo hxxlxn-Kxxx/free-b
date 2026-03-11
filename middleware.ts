@@ -14,8 +14,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // 토큰이 있는데 로그인 페이지를 가려고 하면 대시보드로 튕겨냄!
-  if (hasSession && isLoginPage) {
+  // accessToken이 살아 있을 때만 로그인 페이지 접근을 막는다.
+  if (accessToken && isLoginPage) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
