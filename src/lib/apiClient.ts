@@ -118,6 +118,11 @@ export const apiClient = {
   signContract: (contractId: string, payload: { reauthToken: string }) =>
     request<any>(`/contracts/${contractId}/sign`, { method: "POST", body: JSON.stringify(payload) }),
 
+  // --- Settlements ---
+  // 월별 정산 조회 - GET /settlements?month=YYYY-MM
+  getSettlements: (month?: string) =>
+    request<any>(`/settlements${month ? `?month=${month}` : ""}`),
+
   // --- Attendance ---
   getAttendances: () => request<any>("/attendances"),
   getAttendanceEvents: (params: { lessonId?: string; eventType?: string }) => {
