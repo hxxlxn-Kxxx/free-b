@@ -747,7 +747,22 @@ export default function ClassDetailPage() {
               </Box>
             ) : (
               <>
-                <Typography variant="h4" fontWeight="bold" sx={{ mb: 1 }}>{lesson.lectureTitle}</Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
+                  <Typography variant="h4" fontWeight="bold">{lesson.lectureTitle}</Typography>
+                  {lesson.sourceType === "EXTERNAL_DOCUMENT" && (
+                    <Chip
+                      label={LESSON_SOURCE_TYPE_MAP.EXTERNAL_DOCUMENT.label}
+                      size="small"
+                      sx={{
+                        fontSize: "0.75rem",
+                        bgcolor: "#FFF3E0",
+                        color: "#E65100",
+                        fontWeight: 700,
+                        border: "1px solid #FFB74D",
+                      }}
+                    />
+                  )}
+                </Box>
                 <Stack spacing={1} sx={{ mb: 4 }}>
                   <Typography variant="subtitle1" color="textSecondary" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <LocationOn fontSize="small" /> {lesson.region} {lesson.museum && `> ${lesson.museum}`}
