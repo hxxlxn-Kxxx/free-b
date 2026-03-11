@@ -145,6 +145,13 @@ export default function ChatDrawer({ open, onClose, onUnreadCountChange }: ChatD
       }
     });
 
+    socket.on("connect", () => {
+      // 소켓 재연결 시 현재 열려 있는 방이 있다면 다시 join
+      if (activeRoomRef.current) {
+        socket.emit("join_room", { roomId: activeRoomRef.current.roomId });
+      }
+    });
+
     socket.on("connect_error", (err) => {
       console.warn("ChatSocket connect error:", err.message);
     });
@@ -210,6 +217,10 @@ export default function ChatDrawer({ open, onClose, onUnreadCountChange }: ChatD
     setMessages([]);
     setNextCursor(null);
     await fetchMessages(room.roomId);
+
+    // 실시간 메시지 수신을 위해 방 진입 알림
+    socketRef.current?.emit("join_room", { roomId: room.roomId });
+
     // 읽음 처리 → vadgeCount 0
     apiClient.readRoom(room.roomId).catch(() => {});
     setRooms((prev) =>
@@ -251,6 +262,9 @@ export default function ChatDrawer({ open, onClose, onUnreadCountChange }: ChatD
   }, [messages]);
 
   const handleBack = () => {
+    if (activeRoom) {
+      socketRef.current?.emit("leave_room", { roomId: activeRoom.roomId });
+    }
     setActiveRoom(null);
     setMessages([]);
     fetchRooms();
