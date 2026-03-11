@@ -12,6 +12,9 @@ import {
   Drawer,
   IconButton,
   List,
+  Menu,
+  MenuItem,
+  ListItemIcon,
   Stack,
   Toolbar,
   Typography,
@@ -20,6 +23,7 @@ import {
   ChatBubble,
   ExpandLess,
   ExpandMore,
+  Logout,
   Notifications,
   Search,
 } from '@mui/icons-material';
@@ -41,6 +45,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
     Instructors: pathname.startsWith('/instructors'),
     Schedules: pathname.startsWith('/schedules'),
   });
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
 
   const activeSectionLabel = useMemo(() => {
     const activeItem = adminNavigation.find((item) => pathname.startsWith(item.href));
@@ -67,6 +73,20 @@ export default function AppShell({ children }: { children: ReactNode }) {
     const timer = setInterval(refreshUnreadCount, 30000);
     return () => clearInterval(timer);
   }, [refreshUnreadCount]);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    handleMenuClose();
+    apiClient.logout();
+  };
+
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
@@ -218,17 +238,45 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   <Notifications />
                 </Badge>
               </IconButton>
-              <Avatar
-                sx={{
-                  width: 40,
-                  height: 40,
-                  backgroundColor: 'primary.main',
-                  color: 'primary.contrastText',
-                  fontWeight: 700,
+              <IconButton
+                onClick={handleMenuOpen}
+                sx={{ p: 0 }}
+              >
+                <Avatar
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    backgroundColor: 'primary.main',
+                    color: 'primary.contrastText',
+                    fontWeight: 700,
+                  }}
+                >
+                  M
+                </Avatar>
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+                onClick={handleMenuClose}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                PaperProps={{
+                  sx: {
+                    mt: 1,
+                    borderRadius: '12px 0 12px 12px',
+                    minWidth: 160,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                  }
                 }}
               >
-                M
-              </Avatar>
+                <MenuItem onClick={handleLogout}>
+                  <ListItemIcon>
+                    <Logout fontSize="small" />
+                  </ListItemIcon>
+                  <Typography variant="body2">로그아웃</Typography>
+                </MenuItem>
+              </Menu>
             </Stack>
           </Stack>
         </Toolbar>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Fragment } from "react";
 import {
   Alert,
   Box,
@@ -255,9 +255,8 @@ export default function SettlementPage() {
                 const adjustedNet = row.netAmount + bonus;
 
                 return (
-                  <>
+                  <Fragment key={rowKey}>
                     <TableRow
-                      key={rowKey}
                       hover
                       sx={{ bgcolor: row.status === "PAID" ? "#F0FFF4" : "inherit" }}
                     >
@@ -356,7 +355,7 @@ export default function SettlementPage() {
                         </Collapse>
                       </TableCell>
                     </TableRow>
-                  </>
+                  </Fragment>
                 );
               })}
             </TableBody>
