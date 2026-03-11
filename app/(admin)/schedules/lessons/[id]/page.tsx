@@ -157,7 +157,7 @@ function RecommendationsPanel({
   isCanceled,
 }: {
   lessonId: string;
-  onAssign: () => void;
+  onAssign: (id?: string) => void;
   isCanceled: boolean;
 }) {
   const [expandedRecs, setExpandedRecs] = useState<Record<string, boolean>>({});
@@ -192,7 +192,7 @@ function RecommendationsPanel({
           </Typography>
         </Box>
         {!isCanceled && (
-          <Button variant="outlined" size="small" onClick={onAssign}>직접 배정하기</Button>
+          <Button variant="outlined" size="small" onClick={() => onAssign()}>직접 배정하기</Button>
         )}
       </Stack>
 
@@ -233,7 +233,7 @@ function RecommendationsPanel({
               <Button 
                 variant="contained" 
                 startIcon={<AssignmentInd />}
-                onClick={onAssign}
+                onClick={() => onAssign()}
                 sx={{ borderRadius: 2, px: 3, boxShadow: "none" }}
               >
                 직접 배정하기
@@ -689,9 +689,14 @@ export default function ClassDetailPage() {
 
   const queryClient = useQueryClient();
 
-  const handleOpenAssignModal = () => {
+  const handleOpenAssignModal = (preselectedId?: string | React.MouseEvent | any) => {
     if (!lesson?.startsAt || !lesson?.endsAt) return alert("수업 시간이 없어 강사 목록을 조회할 수 없습니다.");
     setIsAssignModalOpen(true);
+    if (typeof preselectedId === "string") {
+      setSelectedInstructorId(preselectedId);
+    } else {
+      setSelectedInstructorId("");
+    }
   };
 
   const assignMutation = useMutation({
