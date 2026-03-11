@@ -73,6 +73,11 @@ type Recommendation = {
   reasons: string[];
   riskFlags: string[];
   metrics: RecommendationMetrics;
+  confidenceLabel?: string;
+  fitSummary?: string;
+  primaryReason?: string;
+  etaMinutes?: number;
+  distanceKm?: number;
 };
 
 type LessonReport = {
@@ -222,10 +227,25 @@ function RecommendationsPanel({
                     {rec.majorField && (
                       <Typography variant="caption" color="text.secondary">{rec.majorField}</Typography>
                     )}
+                    {rec.confidenceLabel && (
+                      <Chip label={rec.confidenceLabel} size="small" variant="outlined" sx={{ fontSize: "0.7rem", height: 20 }} color="primary" />
+                    )}
                   </Stack>
 
+                  {/* 핵심 추천 사유 및 설명 */}
+                  {rec.primaryReason && (
+                    <Typography variant="body2" fontWeight="bold" color="primary.main" sx={{ mb: 0.5 }}>
+                      ✨ {rec.primaryReason}
+                    </Typography>
+                  )}
+                  {rec.fitSummary && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      {rec.fitSummary}
+                    </Typography>
+                  )}
+
                   {/* 추천 이유 */}
-                  {rec.reasons.length > 0 && (
+                  {rec.reasons?.length > 0 && (
                     <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1 }}>
                       {rec.reasons.map((r) => (
                         <Chip key={r} label={r} size="small" sx={{ bgcolor: "#E8F5E9", color: "#2E7D32", fontSize: "0.7rem" }} />
@@ -234,7 +254,7 @@ function RecommendationsPanel({
                   )}
 
                   {/* 리스크 플래그 */}
-                  {rec.riskFlags.length > 0 && (
+                  {rec.riskFlags?.length > 0 && (
                     <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1 }}>
                       {rec.riskFlags.map((r) => (
                         <Chip key={r} label={r} size="small" sx={{ bgcolor: "#FFF3E0", color: "#E65100", fontSize: "0.7rem" }} />
@@ -242,19 +262,26 @@ function RecommendationsPanel({
                     </Stack>
                   )}
 
-                  {/* metrics */}
-                  <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mt: 1 }}>
+                  {/* 이동 관련 정보 & metrics */}
+                  <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mt: 1, alignItems: "center" }}>
+                    {(rec.distanceKm !== undefined || rec.etaMinutes !== undefined) && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        🚗 {rec.distanceKm !== undefined ? `${rec.distanceKm.toFixed(1)}km` : ""}
+                        {rec.distanceKm !== undefined && rec.etaMinutes !== undefined ? " / " : ""}
+                        {rec.etaMinutes !== undefined ? `약 ${rec.etaMinutes}분` : ""}
+                      </Typography>
+                    )}
                     <Typography variant="caption" color="text.secondary">
-                      수락률 {Math.round(rec.metrics.acceptanceRate * 100)}%
+                      수락률 {Math.round((rec.metrics?.acceptanceRate || 0) * 100)}%
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      90일 완료 {rec.metrics.completedLessonCount90d}건
+                      90일 완료 {rec.metrics?.completedLessonCount90d || 0}건
                     </Typography>
-                    <Typography variant="caption" color={rec.metrics.lateCount90d > 0 ? "error" : "text.secondary"}>
-                      지각 {rec.metrics.lateCount90d}건
+                    <Typography variant="caption" color={(rec.metrics?.lateCount90d || 0) > 0 ? "error" : "text.secondary"}>
+                      지각 {rec.metrics?.lateCount90d || 0}건
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      가용 슬롯 {rec.metrics.matchingSlotCount}개
+                      가용 슬롯 {rec.metrics?.matchingSlotCount || 0}개
                     </Typography>
                   </Stack>
                 </Box>
