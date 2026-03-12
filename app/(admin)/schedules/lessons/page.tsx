@@ -24,6 +24,7 @@ import {
   Typography,
   Stack,
   Autocomplete,
+  TextField,
 } from "@mui/material";
 import { Add, Search, UploadFile } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
@@ -415,12 +416,38 @@ export default function ClassManagementPage() {
           onChange={(_, newValue) => {
             setSelectedInstructorId(newValue ? (newValue as any).instructorId : "");
           }}
+          renderOption={(props, option: any) => {
+            const { key, ...otherProps } = props as any;
+            return (
+              <li key={option.instructorId} {...otherProps}>
+                {option.name}
+              </li>
+            );
+          }}
           renderInput={(params) => (
-            <AtomInput
+            <TextField
               {...params}
               label="담당 강사"
               placeholder="강사명 검색"
-              sx={{ minWidth: 180 }}
+              sx={{ 
+                minWidth: 180,
+                flex: 1,
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "14px 0 14px 14px",
+                  backgroundColor: "#FFFFFF",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                  "& fieldset": {
+                    borderColor: "#EFD9A2",
+                  },
+                },
+                "& .MuiInputBase-input": {
+                  color: "#251B10",
+                },
+                "& .MuiInputLabel-root": {
+                  color: "#7A6A58",
+                },
+              }}
+              InputLabelProps={{ shrink: true }}
             />
           )}
           sx={{ flex: 1, minWidth: 180 }}

@@ -66,9 +66,14 @@ type ContractRow = {
   effectiveFrom?: string;
   effectiveTo?: string;
   status: ContractStatus;
+  pdfGenerationStatus?: "READY" | "GENERATING" | "FAILED" | "PENDING";
   createdAt?: string;
   latestVersion?: {
     documentHashSha256?: string;
+    finalPdfFileKey?: string;
+    finalPdfHashSha256?: string;
+    pdfGeneratedAt?: string;
+    pdfGenerationError?: string;
     [key: string]: any;
   };
   signatures?: Array<{
@@ -346,6 +351,56 @@ function ContractsContent() {
     signMutation.mutate({ token: signToken });
   };
 
+  // ── PDF 재생성 핸들러
+  const regenerateMutation = useMutation({
+    mutationFn: async () => {
+      if (!contractId) throw new Error("계약 ID가 없습니다.");
+      return apiClient.regenerateContractFinalPdf(contractId);
+    },
+    onSuccess: (data) => {
+      console.log("Regeneration started:", data);
+      alert("PDF 재생성 요청이 완료되었습니다.");
+      queryClient.invalidateQueries({ queryKey: queryKeys.contracts.detail(selectedId as string) });
+    },
+    onError: (err) => {
+      console.error("Regeneration Error:", err);
+      alert(err instanceof Error ? err.message : "재생성 요청에 실패했습니다.");
+    },
+  });
+
+  const handleRegenerate = () => {
+    if (!contractId) return;
+    if (!window.confirm("최종 PDF를 재생성하시겠습니까? (GENERATING 상태로 전환됩니다)")) return;
+    regenerateMutation.mutate();
+  };
+
+  // ── 최종 PDF 열람 핸들러 (Blob fetch 방식)
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const handleViewFinalPdf = async () => {
+    if (!contractId) {
+      alert("계약 ID를 찾을 수 없습니다.");
+      return;
+    }
+    setIsPdfLoading(true);
+    try {
+      console.log(`Fetching PDF for contract: ${contractId}`);
+      const blob = await apiClient.getContractFinalPdfFile(contractId);
+      if (!blob || blob.size === 0) {
+        throw new Error("가져온 PDF 데이터가 비어있습니다.");
+      }
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank");
+      if (!win) {
+        alert("팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.");
+      }
+    } catch (err: any) {
+      console.error("PDF View Error:", err);
+      alert(err.message || "PDF를 불러오지 못했습니다.");
+    } finally {
+      setIsPdfLoading(false);
+    }
+  };
+
   return (
     <Box>
       <PageHeader
@@ -613,16 +668,74 @@ function ContractsContent() {
                 </Stack>
               </SurfaceCard>
 
-              {/* PDF 열람 버튼 (FULLY_SIGNED 일 때만 활성화) */}
+              {/* PDF 열람 및 재생성 버튼 */}
               {drawerContract.status === "FULLY_SIGNED" ? (
-                <AtomButton
-                  atomVariant="outline"
-                  size="large"
-                  startIcon={<PictureAsPdf />}
-                  sx={{ width: "100%", mb: "auto", borderStyle: "dashed", borderWidth: 2 }}
-                >
-                  계약서 최종 PDF 열람
-                </AtomButton>
+                <Stack spacing={1} sx={{ mb: "auto" }}>
+                  <AtomButton
+                    atomVariant="outline"
+                    size="large"
+                    startIcon={isPdfLoading ? <CircularProgress size={20} color="inherit" /> : <PictureAsPdf />}
+                    sx={{ width: "100%", borderStyle: "dashed", borderWidth: 2 }}
+                    onClick={handleViewFinalPdf}
+                    disabled={isPdfLoading || drawerContract.pdfGenerationStatus !== "READY"}
+                  >
+                    계약서 최종 PDF 열람
+                  </AtomButton>
+                  
+                  {/* PDF 생성 상태 표시 */}
+                  <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                    <Typography variant="caption" color="text.secondary">
+                      PDF 상태: 
+                    </Typography>
+                    {(drawerContract.pdfGenerationStatus === "GENERATING" || drawerContract.pdfGenerationStatus === "PENDING") && (
+                      <Chip label={drawerContract.pdfGenerationStatus === "PENDING" ? "대기 중" : "생성 중..."} size="small" color="info" icon={<CircularProgress size={12} />} sx={{ height: 20, fontSize: 11 }} />
+                    )}
+                    {drawerContract.pdfGenerationStatus === "FAILED" && (
+                      <Stack spacing={0.5} alignItems="center">
+                        <Chip label="생성 실패" size="small" color="error" sx={{ height: 20, fontSize: 11 }} />
+                        {(drawerContract.latestVersion?.pdfGenerationError || (drawerContract as any).pdf_generation_error) ? (
+                          <Typography variant="caption" color="error.main" sx={{ fontSize: 10, textAlign: "center", maxWidth: 200 }}>
+                            사유: {drawerContract.latestVersion?.pdfGenerationError || (drawerContract as any).pdf_generation_error}
+                          </Typography>
+                        ) : (
+                          <Typography variant="caption" color="error.main" sx={{ fontSize: 10, textAlign: "center", maxWidth: 200 }}>
+                            사유: 백엔드 오류 (도장 등록 여부를 확인해주세요)
+                          </Typography>
+                        )}
+                      </Stack>
+                    )}
+                    {drawerContract.pdfGenerationStatus === "READY" && (
+                      <Stack spacing={0.5} alignItems="center">
+                        <Chip label="준비됨" size="small" color="success" sx={{ height: 20, fontSize: 11 }} />
+                        {(drawerContract.latestVersion?.pdfGeneratedAt || (drawerContract as any).pdf_generated_at) && (
+                          <Typography variant="caption" color="text.disabled" sx={{ fontSize: 9 }}>
+                            생성일시: {new Date(drawerContract.latestVersion?.pdfGeneratedAt || (drawerContract as any).pdf_generated_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}
+                          </Typography>
+                        )}
+                      </Stack>
+                    )}
+                    {/* 디버깅용: 위 조건에 맞지 않는 값이 들어올 경우 표시 */}
+                    {!["READY", "GENERATING", "FAILED", "PENDING"].includes(drawerContract.pdfGenerationStatus || "") && (
+                      <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                        {drawerContract.pdfGenerationStatus || (drawerContract as any).pdf_generation_status || "데이터 없음"}
+                      </Typography>
+                    )}
+                  </Stack>
+
+                  {/* 실패 또는 대기 중일 때 재생성 버튼 노출 */}
+                  {(drawerContract.pdfGenerationStatus === "FAILED" || drawerContract.pdfGenerationStatus === "PENDING") && (
+                    <AtomButton
+                      atomVariant="outline"
+                      size="small"
+                      color={drawerContract.pdfGenerationStatus === "FAILED" ? "error" : "primary"}
+                      sx={{ width: "100%", py: 0.5 }}
+                      onClick={handleRegenerate}
+                      disabled={regenerateMutation.isPending}
+                    >
+                      {drawerContract.pdfGenerationStatus === "FAILED" ? "PDF 수동 재생성" : "PDF 생성 요청하기"}
+                    </AtomButton>
+                  )}
+                </Stack>
               ) : (
                 <Box
                   sx={{
