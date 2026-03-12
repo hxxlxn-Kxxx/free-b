@@ -73,6 +73,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    console.error(`[API Error] ${response.status} ${url}:`, errorData);
     throw new ApiError(response.status, errorData.message || "API Error", errorData.code);
   }
 
@@ -82,6 +83,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 
   const data = await response.json().catch(() => ({}));
+  // console.log(`[API Success] ${url}:`, data);
   return data.data !== undefined ? data.data : data;
 }
 
@@ -144,6 +146,23 @@ export const apiClient = {
   // 관리자 서명 - POST /contracts/:contractId/sign
   signContract: (contractId: string, payload: { consentGiven: boolean; consentTextVersion: string; signToken: string; signatureFileKey?: string; ipAddress?: string }) =>
     request<any>(`/contracts/${contractId}/sign`, { method: "POST", body: JSON.stringify(payload) }),
+
+  // 완료 계약 PDF 파일 열람 (Blob) - GET /contracts/:contractId/final-pdf/file
+  getContractFinalPdfFile: async (contractId: string) => {
+    const token = getToken();
+    const url = `${BASE_URL}/contracts/${contractId}/final-pdf/file`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+    });
+    if (!response.ok) throw new Error("PDF 파일을 불러오지 못했습니다.");
+    return await response.blob();
+  },
+
+  // PDF 수동 재생성 - POST /contracts/:contractId/final-pdf/regenerate
+  regenerateContractFinalPdf: (contractId: string) =>
+    request<any>(`/contracts/${contractId}/final-pdf/regenerate`, { method: "POST" }),
 
   // --- Settlements ---
   // 월별 정산 조회 - GET /settlements?month=YYYY-MM
