@@ -216,8 +216,8 @@ export default function DashboardPage() {
   return (
     <Box>
       <PageHeader
-        title="종합 대시보드"
-        description="오늘 운영 이슈와 배정 흐름을 한 화면에서 빠르게 확인합니다."
+        title="대시보드"
+        action={null}
       />
 
       {/* ── 통계 카드 */}

@@ -20,7 +20,10 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Typography,
+  Stack,
+  Autocomplete,
 } from "@mui/material";
 import { Add, Search, UploadFile } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
@@ -121,13 +124,29 @@ const formatUtcToLocal = (utcString: string) => {
 
 export default function ClassManagementPage() {
   const [filterStatus, setFilterStatus] = useState<"ALL" | LessonStatus>("ALL");
+  const [selectedInstructorId, setSelectedInstructorId] = useState("");
   const [searchName, setSearchName] = useState("");
   const [startDate, setStartDate] = useState("");
-  const [selectedInstructorId, setSelectedInstructorId] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [dateInput, setDateInput] = useState("");
+  
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [partialSuccessData, setPartialSuccessData] = useState<{ lessonId: string } | null>(null);
+  
+  const [order, setOrder] = useState<"asc" | "desc">("asc");
+  const [orderBy, setOrderBy] = useState<string>("startsAt");
+
   const router = useRouter();
+
+  // ── 데바운싱 처리
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchName(searchInput);
+      setStartDate(dateInput);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchInput, dateInput]);
 
   // ── 데이터 로드 (React Query)
   const queryString = [
@@ -156,10 +175,67 @@ export default function ClassManagementPage() {
     }
   });
 
-  // 검색어 필터링 (클라이언트)
-  const filteredClasses = searchName.trim()
-    ? classes.filter((row: LessonRow) => row.lectureTitle.toLowerCase().includes(searchName.trim().toLowerCase()))
-    : classes;
+  const handleReset = () => {
+    setFilterStatus("ALL");
+    setSearchName("");
+    setSearchInput("");
+    setStartDate("");
+    setDateInput("");
+    setSelectedInstructorId("");
+  };
+
+  const handleRequestSort = (property: string) => {
+    const isAsc = orderBy === property && order === "asc";
+    setOrder(isAsc ? "desc" : "asc");
+    setOrderBy(property);
+  };
+
+  // 필터링 처리 (클라이언트)
+  const filteredClasses = classes.filter((row: LessonRow) => {
+    // 1. 수업명 필터
+    const matchesName = !searchName.trim() || 
+      row.lectureTitle.toLowerCase().includes(searchName.trim().toLowerCase());
+    
+    // 2. 날짜 필터
+    const matchesDate = !startDate || row.startsAt.startsWith(startDate);
+
+    // 3. 상태 필터
+    const matchesStatus = filterStatus === "ALL" || row.status === filterStatus;
+
+    // 4. 강사 필터
+    const matchesInstructor = !selectedInstructorId || 
+      (row as any).instructorId === selectedInstructorId || 
+      row.requestedInstructorId === selectedInstructorId;
+
+    return matchesName && matchesDate && matchesStatus && matchesInstructor;
+  });
+
+  // 정렬 처리 (클라이언트)
+  const sortedClasses = [...filteredClasses].sort((a, b) => {
+    let aValue: any;
+    let bValue: any;
+
+    if (orderBy === "location") {
+      aValue = a.museum || a.venueName || a.region || "";
+      bValue = b.museum || b.venueName || b.region || "";
+    } else if (orderBy === "instructor") {
+      aValue = a.instructorName || a.requestedInstructorName || "";
+      bValue = b.instructorName || b.requestedInstructorName || "";
+    } else {
+      aValue = a[orderBy as keyof LessonRow] || "";
+      bValue = b[orderBy as keyof LessonRow] || "";
+    }
+
+    // 날짜/시간 필드인 경우 숫자로 변환하여 비교
+    if (orderBy === "startsAt" || orderBy === "endsAt") {
+      aValue = new Date(aValue).getTime();
+      bValue = new Date(bValue).getTime();
+    }
+
+    if (aValue < bValue) return order === "asc" ? -1 : 1;
+    if (aValue > bValue) return order === "asc" ? 1 : -1;
+    return 0;
+  });
 
 
   const [availableInstructors, setAvailableInstructors] = useState<AvailableInstructor[]>([]);
@@ -283,7 +359,6 @@ export default function ClassManagementPage() {
     <Box>
       <PageHeader
         title="수업 관리"
-        description="실제 수업 목록과 신규 등록 흐름을 같은 운영 패턴으로 관리합니다."
         action={
           <Box sx={{ display: "flex", gap: 1 }}>
             <AtomButton 
@@ -306,8 +381,8 @@ export default function ClassManagementPage() {
           size="small"
           sx={{ flex: 1, minWidth: 200 }}
           placeholder="수업명 입력"
-          value={searchName}
-          onChange={(event) => setSearchName(event.target.value)}
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
         />
         <AtomInput
           select
@@ -325,35 +400,42 @@ export default function ClassManagementPage() {
         </AtomInput>
         <AtomInput
           type="date"
-          label="시작 일정"
+          label="날짜"
           size="small"
-          value={startDate}
-          onChange={(event) => setStartDate(event.target.value)}
+          value={dateInput}
+          onChange={(event) => setDateInput(event.target.value)}
           sx={{ flex: 1, minWidth: 160 }}
           InputLabelProps={{ shrink: true }}
         />
-        <AtomInput
-          select
-          label="담당 강사"
+        <Autocomplete
           size="small"
-          value={selectedInstructorId}
-          onChange={(event) => setSelectedInstructorId(event.target.value)}
-          sx={{ flex: 1, minWidth: 160 }}
-        >
-          <MenuItem value="">전체 강사</MenuItem>
-          {allInstructors.map((ins: any) => (
-            <MenuItem key={ins.instructorId} value={ins.instructorId}>
-              {ins.name}
-            </MenuItem>
-          ))}
-        </AtomInput>
-        <AtomButton 
-          startIcon={<Search />} 
-          onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.lessons.all })}
-          sx={{ height: 40 }}
-        >
-          검색
-        </AtomButton>
+          options={allInstructors || []}
+          getOptionLabel={(option: any) => option.name || ""}
+          value={(allInstructors || []).find((ins: any) => ins.instructorId === selectedInstructorId) || null}
+          onChange={(_, newValue) => {
+            setSelectedInstructorId(newValue ? (newValue as any).instructorId : "");
+          }}
+          renderInput={(params) => (
+            <AtomInput
+              {...params}
+              label="담당 강사"
+              placeholder="강사명 검색"
+              sx={{ minWidth: 180 }}
+            />
+          )}
+          sx={{ flex: 1, minWidth: 180 }}
+          noOptionsText="검색 결과 없음"
+        />
+        <Stack direction="row" spacing={1}>
+          <AtomButton atomVariant="outline" onClick={handleReset}>초기화</AtomButton>
+          <AtomButton 
+            startIcon={<Search />} 
+            onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.lessons.all })}
+            sx={{ height: 40 }}
+          >
+            검색
+          </AtomButton>
+        </Stack>
       </FilterBar>
 
       {listError ? (
@@ -373,33 +455,78 @@ export default function ClassManagementPage() {
           <TableHead sx={{ bgcolor: "#FBF7ED" }}>
             <TableRow>
               <TableCell align="center" sx={{ fontWeight: 700 }}>
-                수업명
+                <TableSortLabel
+                  active={orderBy === "lectureTitle"}
+                  direction={orderBy === "lectureTitle" ? order : "asc"}
+                  onClick={() => handleRequestSort("lectureTitle")}
+                  sx={{ pl: "26px" }}
+                >
+                  수업명
+                </TableSortLabel>
               </TableCell>
               <TableCell align="center" sx={{ fontWeight: 700 }}>
-                장소
+                <TableSortLabel
+                  active={orderBy === "location"}
+                  direction={orderBy === "location" ? order : "asc"}
+                  onClick={() => handleRequestSort("location")}
+                  sx={{ pl: "26px" }}
+                >
+                  장소
+                </TableSortLabel>
               </TableCell>
               <TableCell align="center" sx={{ fontWeight: 700 }}>
-                담당 강사
+                <TableSortLabel
+                  active={orderBy === "instructor"}
+                  direction={orderBy === "instructor" ? order : "asc"}
+                  onClick={() => handleRequestSort("instructor")}
+                  sx={{ pl: "26px" }}
+                >
+                  담당 강사
+                </TableSortLabel>
               </TableCell>
               <TableCell align="center" sx={{ fontWeight: 700 }}>
-                시작 시간
+                <TableSortLabel
+                  active={orderBy === "startsAt"}
+                  direction={orderBy === "startsAt" ? order : "asc"}
+                  onClick={() => handleRequestSort("startsAt")}
+                  sx={{ pl: "26px" }}
+                >
+                  날짜
+                </TableSortLabel>
               </TableCell>
               <TableCell align="center" sx={{ fontWeight: 700 }}>
-                상태
+                <TableSortLabel
+                  active={orderBy === "startsAt"}
+                  direction={orderBy === "startsAt" ? order : "asc"}
+                  onClick={() => handleRequestSort("startsAt")}
+                  sx={{ pl: "26px" }}
+                >
+                  시간
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
+                <TableSortLabel
+                  active={orderBy === "status"}
+                  direction={orderBy === "status" ? order : "asc"}
+                  onClick={() => handleRequestSort("status")}
+                  sx={{ pl: "26px" }}
+                >
+                  상태
+                </TableSortLabel>
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredClasses.map((lesson: any) => {
+            {sortedClasses.map((lesson: any) => {
               const location = lesson.museum || lesson.venueName || lesson.region || "-";
-              const instructor = lesson.requestedInstructorId || "미배정";
               
               const statusKey = lesson.status as LessonStatus; 
               const statusInfo = LESSON_STATUS_MAP[statusKey] || { label: lesson.status, color: "default" };
 
-              const startDate = new Date(lesson.startsAt);
-              const endDate = new Date(lesson.endsAt);
-              const dateStr = `${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ~ ${endDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+              const startDt = new Date(lesson.startsAt);
+              const endDt = new Date(lesson.endsAt);
+              const dateOnlyStr = startDt.toLocaleDateString();
+              const timeRangeStr = `${startDt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false})} ~ ${endDt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false})}`;
 
               return (
                 <TableRow 
@@ -431,7 +558,8 @@ export default function ClassManagementPage() {
                   <TableCell align="center">
                    {lesson.instructorName || lesson.requestedInstructorName || lesson.requestedInstructor?.name || "미배정"}
                   </TableCell>
-                  <TableCell align="center">{dateStr}</TableCell>
+                  <TableCell align="center">{dateOnlyStr}</TableCell>
+                  <TableCell align="center">{timeRangeStr}</TableCell>
                   <TableCell align="center">
                     <Chip label={statusInfo.label} color={statusInfo.color as any} size="small" />
                   </TableCell>

@@ -112,10 +112,7 @@ export default function SettingsPage() {
 
   return (
     <Box sx={{ maxWidth: 960 }}>
-      <PageHeader
-        title="환경 설정"
-        description="운영 기준, 알림 정책, 계정 관리 규칙을 한곳에서 조정합니다."
-      />
+      <PageHeader title="설정" />
 
       <SurfaceCard sx={{ overflow: "hidden" }}>
         <Box sx={{ borderBottom: 1, borderColor: "divider", backgroundColor: "#FBF7ED" }}>

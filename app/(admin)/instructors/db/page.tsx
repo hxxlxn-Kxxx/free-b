@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Box, MenuItem, Stack, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, CircularProgress, Typography
+  TableContainer, TableHead, TableRow, CircularProgress, Typography,
+  TableSortLabel
 } from "@mui/material";
 import { Add, Search, UploadFile } from "@mui/icons-material";
 
@@ -30,11 +31,17 @@ export default function InstructorDBPage() {
   const router = useRouter();
   
   const [filterRegion, setFilterRegion] = useState("");
+  const [regionInput, setRegionInput] = useState("");
   const [filterMajor, setFilterMajor] = useState("");
+  const [majorInput, setMajorInput] = useState("");
   const [filterName, setFilterName] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [filterLevel, setFilterLevel] = useState("전체");
   const [instructors, setInstructors] = useState<InstructorRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [order, setOrder] = useState<"asc" | "desc">("asc");
+  const [orderBy, setOrderBy] = useState<string>("name");
 
   useEffect(() => {
     const fetchInstructors = async () => {
@@ -54,15 +61,57 @@ export default function InstructorDBPage() {
     fetchInstructors();
   }, []);
 
+  // ── 데바운싱 처리
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilterName(searchInput);
+      setFilterRegion(regionInput);
+      setFilterMajor(majorInput);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchInput, regionInput, majorInput]);
+
   const handleReset = () => {
-    setFilterRegion(""); setFilterMajor(""); setFilterName(""); setFilterLevel("전체");
+    setSearchInput("");
+    setRegionInput("");
+    setMajorInput("");
+    setFilterName("");
+    setFilterRegion("");
+    setFilterMajor("");
+    setFilterLevel("전체");
   };
+
+  const handleRequestSort = (property: string) => {
+    const isAsc = orderBy === property && order === "asc";
+    setOrder(isAsc ? "desc" : "asc");
+    setOrderBy(property);
+  };
+
+  const filteredInstructors = instructors.filter((ins) => {
+    const nameMatch = !filterName || ins.name.includes(filterName);
+    const regionMatch = !filterRegion || (ins.residenceArea ?? "").includes(filterRegion);
+    const majorMatch = !filterMajor || (ins.majorField ?? "").includes(filterMajor);
+    // 레벨은 현재 데이터 스키마에 명시적으로 없으므로 일단 스킵하거나 추가 로직 필요 (필요시 데이터 모델에 맞춰 수정)
+    return nameMatch && regionMatch && majorMatch;
+  });
+
+  const sortedInstructors = [...filteredInstructors].sort((a, b) => {
+    let aValue = a[orderBy as keyof InstructorRow] ?? "";
+    let bValue = b[orderBy as keyof InstructorRow] ?? "";
+
+    if (bValue < aValue) {
+      return order === "desc" ? -1 : 1;
+    }
+    if (bValue > aValue) {
+      return order === "desc" ? 1 : -1;
+    }
+    return 0;
+  });
 
   return (
     <Box>
       <PageHeader
         title="전체 강사 DB"
-        description="강사 프로필, 레벨, 가능 일정과 계약 자료를 탐색합니다."
         action={
           <Stack direction="row" spacing={1}>
             <AtomButton atomVariant="outline" startIcon={<UploadFile />}>엑셀 업로드</AtomButton>
@@ -72,15 +121,24 @@ export default function InstructorDBPage() {
       />
 
       <FilterBar>
-        <AtomInput label="강사명" placeholder="이름 입력" value={filterName} onChange={(e) => setFilterName(e.target.value)} size="small" sx={{ flex: 1 }} />
-        <AtomInput label="거주지역" placeholder="예: 경기" value={filterRegion} onChange={(e) => setFilterRegion(e.target.value)} size="small" sx={{ flex: 1 }} />
-        <AtomInput label="전공" placeholder="예: 컴퓨터공학" value={filterMajor} onChange={(e) => setFilterMajor(e.target.value)} size="small" sx={{ flex: 1 }} />
+        <AtomInput label="강사명" placeholder="이름 입력" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} size="small" sx={{ flex: 1 }} />
+        <AtomInput label="거주지역" placeholder="예: 경기" value={regionInput} onChange={(e) => setRegionInput(e.target.value)} size="small" sx={{ flex: 1 }} />
+        <AtomInput label="전공" placeholder="예: 컴퓨터공학" value={majorInput} onChange={(e) => setMajorInput(e.target.value)} size="small" sx={{ flex: 1 }} />
         <AtomInput select label="레벨" value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} size="small" sx={{ flex: 1 }}>
           {LEVEL_OPTIONS.map((opt) => (<MenuItem key={opt} value={opt}>{opt}</MenuItem>))}
         </AtomInput>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
           <AtomButton atomVariant="outline" onClick={handleReset}>초기화</AtomButton>
-          <AtomButton startIcon={<Search />}>검색</AtomButton>
+          <AtomButton 
+            startIcon={<Search />}
+            onClick={() => {
+              setFilterName(searchInput);
+              setFilterRegion(regionInput);
+              setFilterMajor(majorInput);
+            }}
+          >
+            검색
+          </AtomButton>
         </Stack>
       </FilterBar>
 
@@ -88,11 +146,56 @@ export default function InstructorDBPage() {
         <Table>
           <TableHead sx={{ bgcolor: "#FBF7ED" }}>
             <TableRow>
-              <TableCell align="center" sx={{ fontWeight: 700 }}>이름</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700 }}>상태</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700 }}>연락처</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700 }}>거주지역</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700 }}>전공</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
+                <TableSortLabel
+                  active={orderBy === "name"}
+                  direction={orderBy === "name" ? order : "asc"}
+                  onClick={() => handleRequestSort("name")}
+                  sx={{ pl: "26px" }}
+                >
+                  이름
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
+                <TableSortLabel
+                  active={orderBy === "isActive"}
+                  direction={orderBy === "isActive" ? order : "asc"}
+                  onClick={() => handleRequestSort("isActive")}
+                  sx={{ pl: "26px" }}
+                >
+                  상태
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
+                <TableSortLabel
+                  active={orderBy === "phone"}
+                  direction={orderBy === "phone" ? order : "asc"}
+                  onClick={() => handleRequestSort("phone")}
+                  sx={{ pl: "26px" }}
+                >
+                  연락처
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
+                <TableSortLabel
+                  active={orderBy === "residenceArea"}
+                  direction={orderBy === "residenceArea" ? order : "asc"}
+                  onClick={() => handleRequestSort("residenceArea")}
+                  sx={{ pl: "26px" }}
+                >
+                  거주지역
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>
+                <TableSortLabel
+                  active={orderBy === "majorField"}
+                  direction={orderBy === "majorField" ? order : "asc"}
+                  onClick={() => handleRequestSort("majorField")}
+                  sx={{ pl: "26px" }}
+                >
+                  전공
+                </TableSortLabel>
+              </TableCell>
               <TableCell align="center" sx={{ fontWeight: 700 }}>상세</TableCell>
             </TableRow>
           </TableHead>
@@ -104,14 +207,14 @@ export default function InstructorDBPage() {
                   <Typography color="textSecondary" sx={{ mt: 2 }}>DB에서 강사 데이터를 불러오는 중입니다...</Typography>
                 </TableCell>
               </TableRow>
-            ) : instructors.length === 0 ? (
+            ) : sortedInstructors.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
-                  <Typography color="textSecondary">등록된 강사가 없습니다.</Typography>
+                  <Typography color="textSecondary">조건에 맞는 강사가 없습니다.</Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              instructors.map((instructor) => (
+              sortedInstructors.map((instructor) => (
                 <TableRow key={instructor.instructorId} hover>
                   <TableCell align="center" sx={{ fontWeight: 600 }}>{instructor.name}</TableCell>
                   <TableCell align="center">{instructor.isActive ? "활동 중" : "비활동"}</TableCell>

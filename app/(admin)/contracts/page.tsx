@@ -142,6 +142,7 @@ function ContractsContent() {
   const lessonIdParam = searchParams.get("lessonId");
 
   const [filterName, setFilterName] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
 
   // ── 새 계약 생성 모달 상태
@@ -152,6 +153,20 @@ function ContractsContent() {
   const [signToken, setSignToken] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [consentGiven, setConsentGiven] = useState(false);
+
+  // ── 데바운싱 처리
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilterName(searchInput);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const handleReset = () => {
+    setSearchInput("");
+    setFilterName("");
+    setFilterStatus("");
+  };
 
   // ── 목록 API 조회 (React Query)
   const queryParams: Record<string, string> = {};
@@ -335,7 +350,6 @@ function ContractsContent() {
     <Box>
       <PageHeader
         title="계약 관리"
-        description="계약 생성, 발송, 서명 진행 상태를 한 흐름으로 확인합니다."
         action={
           <AtomButton startIcon={<Add />} onClick={() => setIsCreateOpen(true)}>
             새 계약 생성
@@ -372,8 +386,8 @@ function ContractsContent() {
         <AtomInput
           label="강사명"
           placeholder="이름 입력"
-          value={filterName}
-          onChange={(e) => setFilterName(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           size="small"
           sx={{ flexGrow: 1 }}
         />
@@ -383,7 +397,7 @@ function ContractsContent() {
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
           size="small"
-          sx={{ minWidth: 220 }}
+          sx={{ minWidth: 220, flexGrow: 1 }}
         >
           {STATUS_OPTIONS.map((opt) => (
             <MenuItem key={opt.value} value={opt.value}>
@@ -391,6 +405,16 @@ function ContractsContent() {
             </MenuItem>
           ))}
         </AtomInput>
+        <Stack direction="row" spacing={1} sx={{ ml: { lg: "auto" }, width: { xs: "100%", lg: "auto" } }}>
+          <AtomButton atomVariant="outline" onClick={handleReset} sx={{ minWidth: 100 }}>초기화</AtomButton>
+          <AtomButton 
+            startIcon={<Search />} 
+            sx={{ minWidth: 100 }}
+            onClick={() => setFilterName(searchInput)}
+          >
+            검색
+          </AtomButton>
+        </Stack>
       </FilterBar>
 
       {/* ── 목록 테이블 */}
