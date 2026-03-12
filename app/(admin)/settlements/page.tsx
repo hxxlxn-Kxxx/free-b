@@ -151,8 +151,7 @@ export default function SettlementPage() {
   return (
     <Box>
       <PageHeader
-        title="월별 정산 관리"
-        description="완료된 수업 기반 강사별 월 정산 내역을 확인합니다."
+        title="정산 관리"
         action={
           <SurfaceCard sx={{ px: 2.5, py: 1, borderRadius: "18px 0 18px 18px", boxShadow: "none" }}>
             <Stack direction="row" spacing={1} alignItems="center">

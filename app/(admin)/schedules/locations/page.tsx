@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
-  CircularProgress, Alert, InputLabel, FormControl, Select, Typography, Stack, Paper, Divider
+  CircularProgress, Alert, InputLabel, FormControl, Select, Typography, Stack, Paper, Divider,
+  TableSortLabel
 } from "@mui/material";
 import { Add, LocationOn, Search, Edit } from "@mui/icons-material";
 
@@ -22,6 +23,8 @@ const LOCATION_STATUS_MAP: Record<string, string> = {
   INACTIVE: "계약 종료",
   MAINTENANCE: "공사/휴관",
 };
+
+const REGIONS = ["전체", "서울", "경기", "인천", "부산", "대구", "광주", "대전", "울산", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"];
 
 const LOCATION_TONE_MAP: Record<string, string> = {
   ACTIVE: "confirmed",
@@ -45,10 +48,14 @@ export default function LocationManagementPage() {
   const [locations, setLocations] = useState<LocationDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [order, setOrder] = useState<"asc" | "desc">("asc");
+  const [orderBy, setOrderBy] = useState<string>("locationName");
 
   // Filters
   const [filterQuery, setFilterQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
+  const [filterRegion, setFilterRegion] = useState("전체");
   const [searchInput, setSearchInput] = useState("");
 
   // Modal State
@@ -119,8 +126,50 @@ export default function LocationManagementPage() {
     fetchLocations();
   }, [fetchLocations]);
 
+  // 검색어 디바운싱: 입력이 멈추고 500ms 후에 실제 검색 필터(filterQuery) 반영
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setFilterQuery(searchInput);
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [searchInput]);
+
+  const handleRequestSort = (property: string) => {
+    const isAsc = orderBy === property && order === "asc";
+    setOrder(isAsc ? "desc" : "asc");
+    setOrderBy(property);
+  };
+
+  const filteredLocations = locations.filter((loc) => {
+    const nameMatch = !filterQuery || loc.locationName.includes(filterQuery);
+    const regionMatch = filterRegion === "전체" || loc.address.includes(filterRegion);
+    const statusMatch = filterStatus === "ALL" || loc.locationStatus === filterStatus;
+    return nameMatch && regionMatch && statusMatch;
+  });
+
+  const sortedLocations = [...filteredLocations].sort((a, b) => {
+    let aValue = a[orderBy as keyof LocationDto] || "";
+    let bValue = b[orderBy as keyof LocationDto] || "";
+
+    if (bValue < aValue) {
+      return order === "desc" ? -1 : 1;
+    }
+    if (bValue > aValue) {
+      return order === "desc" ? 1 : -1;
+    }
+    return 0;
+  });
+
   const handleSearchClick = () => {
     setFilterQuery(searchInput);
+  };
+
+  const handleReset = () => {
+    setSearchInput("");
+    setFilterQuery("");
+    setFilterStatus("ALL");
+    setFilterRegion("전체");
   };
 
   const handleOpenModal = (loc?: LocationDto) => {
@@ -201,7 +250,6 @@ export default function LocationManagementPage() {
     <Box>
       <PageHeader
         title="수업지(장소) 관리"
-        description="장소 정보와 가이드 문서를 같은 구조 안에서 관리합니다."
         action={
           <AtomButton startIcon={<Add />} onClick={() => handleOpenModal()}>
             새 장소 등록
@@ -211,30 +259,50 @@ export default function LocationManagementPage() {
 
       <FilterBar>
         <AtomInput
-          label="장소명 또는 주소 검색"
+          label="장소명 검색"
+          placeholder="장소명 입력"
           size="small"
-          sx={{ flexGrow: 1, maxWidth: 360 }}
+          sx={{ flex: 1 }}
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearchClick()}
         />
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>운영 상태</InputLabel>
-          <Select
-            label="운영 상태"
-            name="filterStatus"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as string)}
+        <AtomInput
+          select
+          label="지역"
+          value={filterRegion}
+          onChange={(e) => setFilterRegion(e.target.value as string)}
+          size="small"
+          sx={{ flex: 1 }}
+        >
+          {REGIONS.map((region) => (
+            <MenuItem key={region} value={region}>{region}</MenuItem>
+          ))}
+        </AtomInput>
+        <AtomInput
+          select
+          label="운영 상태"
+          name="filterStatus"
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value as string)}
+          size="small"
+          sx={{ flex: 1 }}
+        >
+          <MenuItem value="ALL">전체 상태</MenuItem>
+          <MenuItem value="ACTIVE">운영중</MenuItem>
+          <MenuItem value="MAINTENANCE">공사/휴관</MenuItem>
+          <MenuItem value="INACTIVE">계약 종료</MenuItem>
+        </AtomInput>
+        <Stack direction="row" spacing={1} sx={{ ml: { lg: "auto" }, width: { xs: "100%", lg: "auto" } }}>
+          <AtomButton atomVariant="outline" onClick={handleReset} sx={{ minWidth: 100 }}>초기화</AtomButton>
+          <AtomButton 
+            startIcon={<Search />} 
+            sx={{ minWidth: 100 }}
+            onClick={handleSearchClick}
           >
-            <MenuItem value="ALL">전체 상태</MenuItem>
-            <MenuItem value="ACTIVE">운영중</MenuItem>
-            <MenuItem value="MAINTENANCE">공사/휴관</MenuItem>
-            <MenuItem value="INACTIVE">계약 종료</MenuItem>
-          </Select>
-        </FormControl>
-        <AtomButton startIcon={<Search />} onClick={handleSearchClick}>
-          검색
-        </AtomButton>
+            검색
+          </AtomButton>
+        </Stack>
       </FilterBar>
 
       <TableContainer component={SurfaceCard}>
@@ -247,7 +315,7 @@ export default function LocationManagementPage() {
           <Box p={4} textAlign="center">
             <Alert severity="error">{error}</Alert>
           </Box>
-        ) : locations.length === 0 ? (
+        ) : filteredLocations.length === 0 ? (
           <Box textAlign="center" py={8} bgcolor="#fcfcfc">
             <Typography color="text.secondary" mb={1}>조회된 수업 장소가 없습니다.</Typography>
             <Typography variant="body2" color="text.secondary">{"'새 장소 등록' 버튼을 눌러 장소를 추가해주세요."}</Typography>
@@ -256,17 +324,52 @@ export default function LocationManagementPage() {
           <Table>
             <TableHead sx={{ bgcolor: "#FBF7ED" }}>
               <TableRow>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>장소명</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>주소</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>담당자 연락처</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700 }}>
+                  <TableSortLabel
+                    active={orderBy === "locationName"}
+                    direction={orderBy === "locationName" ? order : "asc"}
+                    onClick={() => handleRequestSort("locationName")}
+                    sx={{ pl: "26px" }}
+                  >
+                    장소명
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700 }}>
+                  <TableSortLabel
+                    active={orderBy === "address"}
+                    direction={orderBy === "address" ? order : "asc"}
+                    onClick={() => handleRequestSort("address")}
+                    sx={{ pl: "26px" }}
+                  >
+                    주소
+                  </TableSortLabel>
+                </TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700 }}>강사 가이드</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>등록일</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>상태</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700 }}>
+                  <TableSortLabel
+                    active={orderBy === "createdAt"}
+                    direction={orderBy === "createdAt" ? order : "asc"}
+                    onClick={() => handleRequestSort("createdAt")}
+                    sx={{ pl: "26px" }}
+                  >
+                    등록일
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700 }}>
+                  <TableSortLabel
+                    active={orderBy === "locationStatus"}
+                    direction={orderBy === "locationStatus" ? order : "asc"}
+                    onClick={() => handleRequestSort("locationStatus")}
+                    sx={{ pl: "26px" }}
+                  >
+                    상태
+                  </TableSortLabel>
+                </TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700 }}>기능</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {locations.map((row) => (
+              {sortedLocations.map((row) => (
                 <TableRow key={row.locationId} hover>
                   <TableCell align="center" sx={{ fontWeight: 600 }}>
                     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.75 }}>
@@ -275,7 +378,6 @@ export default function LocationManagementPage() {
                     </Box>
                   </TableCell>
                   <TableCell align="center">{row.address}</TableCell>
-                  <TableCell align="center">{row.contactPerson || "-"}</TableCell>
                   <TableCell align="center">
                     {row.guideNotionUrl ? (
                       <AtomButton atomVariant="ghost" size="small" href={row.guideNotionUrl} target="_blank">

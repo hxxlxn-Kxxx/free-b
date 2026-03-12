@@ -19,6 +19,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Tabs,
   Tooltip,
   Typography,
@@ -144,10 +145,14 @@ export default function InstructorListPage() {
 
   // 필터
   const [filterName, setFilterName] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [filterStatus, setFilterStatus] = useState("전체");
 
   // 드로어
   const [selectedInstructor, setSelectedInstructor] = useState<OperationInstructor | null>(null);
+
+  const [order, setOrder] = useState<"asc" | "desc">("asc");
+  const [orderBy, setOrderBy] = useState<string>("name");
 
   // ── 데이터 로드 (React Query)
   const monthStr = toYearMonth(currentMonth);
@@ -199,6 +204,14 @@ export default function InstructorListPage() {
     });
   };
 
+  // ── 데바운싱 처리
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilterName(searchInput);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   // ── 주 이동 (Tab 1)
   const goWeek = (delta: number) => {
     setWeekStart((prev) => {
@@ -206,6 +219,12 @@ export default function InstructorListPage() {
       next.setDate(next.getDate() + delta * 7);
       return next;
     });
+  };
+
+  const handleReset = () => {
+    setSearchInput("");
+    setFilterName("");
+    setFilterStatus("전체");
   };
 
   // ── 필터링
@@ -225,6 +244,30 @@ export default function InstructorListPage() {
     return toISODate(d);
   });
 
+  const handleRequestSort = (property: string) => {
+    const isAsc = orderBy === property && order === "asc";
+    setOrder(isAsc ? "desc" : "asc");
+    setOrderBy(property);
+  };
+
+  const sortedInstructors = [...filtered].sort((a, b) => {
+    let aValue: any = a[orderBy as keyof OperationInstructor] || "";
+    let bValue: any = b[orderBy as keyof OperationInstructor] || "";
+
+    if (orderBy === "progress") {
+      aValue = a.totalAvailableDays > 0 ? a.assignedCount / a.totalAvailableDays : 0;
+      bValue = b.totalAvailableDays > 0 ? b.assignedCount / b.totalAvailableDays : 0;
+    }
+
+    if (bValue < aValue) {
+      return order === "desc" ? -1 : 1;
+    }
+    if (bValue > aValue) {
+      return order === "desc" ? 1 : -1;
+    }
+    return 0;
+  });
+
   const monthLabel = (() => {
     const y = currentMonth.getFullYear();
     const m = currentMonth.getMonth() + 1;
@@ -235,7 +278,6 @@ export default function InstructorListPage() {
     <Box>
       <PageHeader
         title="강사 운영 리스트"
-        description="배정에 필요한 일정 제출 현황과 주간 가용성을 한눈에 확인합니다."
         action={
           currentTab === 0 ? (
             /* 월 이동 */
@@ -277,10 +319,10 @@ export default function InstructorListPage() {
           <AtomInput
             label="강사명"
             placeholder="이름 입력"
-            value={filterName}
-            onChange={(e) => setFilterName(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             size="small"
-            sx={{ flexGrow: 1 }}
+            sx={{ flex: 1 }}
           />
           <AtomInput
             select
@@ -288,15 +330,22 @@ export default function InstructorListPage() {
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             size="small"
-            sx={{ minWidth: { xs: "100%", lg: 220 } }}
+            sx={{ flex: 1 }}
           >
             {SUBMISSION_STATUS_OPTIONS.map((opt) => (
               <MenuItem key={opt} value={opt}>{opt}</MenuItem>
             ))}
           </AtomInput>
-          <AtomButton startIcon={<Search />} sx={{ minWidth: { xs: "100%", lg: 132 } }}>
-            검색
-          </AtomButton>
+          <Stack direction="row" spacing={1} sx={{ ml: { lg: "auto" }, width: { xs: "100%", lg: "auto" } }}>
+            <AtomButton atomVariant="outline" onClick={handleReset} sx={{ minWidth: 100 }}>초기화</AtomButton>
+            <AtomButton 
+              startIcon={<Search />} 
+              sx={{ minWidth: 100 }}
+              onClick={() => setFilterName(searchInput)}
+            >
+              검색
+            </AtomButton>
+          </Stack>
         </FilterBar>
       )}
 
@@ -316,15 +365,51 @@ export default function InstructorListPage() {
               <Table>
                 <TableHead sx={{ backgroundColor: "#FBF7ED" }}>
                   <TableRow>
-                    <TableCell align="center" sx={{ fontWeight: "bold" }}>이름 / 분야</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold" }}>연락처</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold" }}>일정 제출 상태</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold" }}>이번 달 가용 현황</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: "bold" }}>
+                      <TableSortLabel
+                        active={orderBy === "name"}
+                        direction={orderBy === "name" ? order : "asc"}
+                        onClick={() => handleRequestSort("name")}
+                        sx={{ pl: "26px" }}
+                      >
+                        이름 / 분야
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell align="center" sx={{ fontWeight: "bold" }}>
+                      <TableSortLabel
+                        active={orderBy === "phone"}
+                        direction={orderBy === "phone" ? order : "asc"}
+                        onClick={() => handleRequestSort("phone")}
+                        sx={{ pl: "26px" }}
+                      >
+                        연락처
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell align="center" sx={{ fontWeight: "bold" }}>
+                      <TableSortLabel
+                        active={orderBy === "submissionStatus"}
+                        direction={orderBy === "submissionStatus" ? order : "asc"}
+                        onClick={() => handleRequestSort("submissionStatus")}
+                        sx={{ pl: "26px" }}
+                      >
+                        일정 제출 상태
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell align="center" sx={{ fontWeight: "bold" }}>
+                      <TableSortLabel
+                        active={orderBy === "progress"}
+                        direction={orderBy === "progress" ? order : "asc"}
+                        onClick={() => handleRequestSort("progress")}
+                        sx={{ pl: "26px" }}
+                      >
+                        이번 달 가용 현황
+                      </TableSortLabel>
+                    </TableCell>
                     <TableCell align="center" sx={{ fontWeight: "bold" }}>상세 액션</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filtered.map((row) => (
+                  {sortedInstructors.map((row) => (
                     <TableRow key={row.id} hover sx={{ "& td": { borderColor: "divider" } }}>
                       <TableCell align="center">
                         <Typography fontWeight="bold">{row.name}</Typography>

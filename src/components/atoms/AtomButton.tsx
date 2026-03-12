@@ -69,7 +69,7 @@ export default function AtomButton({
       sx={{
         minHeight: 40,
         px: 3,
-        py: 1.5,
+        py: 1,
         borderRadius: "14px 0 14px 14px",
         boxShadow: "none",
         textTransform: "none",
