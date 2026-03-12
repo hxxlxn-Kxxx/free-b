@@ -32,7 +32,9 @@ const steps = ["기본 정보/시간", "장소 및 지도안", "강사 배정"];
 
 const convertToUTCISO8601 = (date: string, time: string): string => {
   if (!date || !time) return "";
-  return `${date}T${time}:00Z`;
+  // 로컬 시간 기준으로 객체 생성 후 ISOString으로 변환하여 타임존 드리프트 방지
+  const localDate = new Date(`${date}T${time}:00`);
+  return localDate.toISOString();
 };
 
 const START_TIME_OPTIONS = Array.from({ length: (22 - 8) * 2 + 1 }, (_, index) => {
@@ -75,6 +77,7 @@ export default function AssignmentModal({ open, onClose, onSuccess }: Assignment
 
   const handleStartTimeChange = (value: string) => {
     setStartTime(value);
+    setSelectedInstructorId(""); // 시간 변경 시 기존 선택된 강사 초기화 (stale 방지)
     if (!value) {
       setEndTime("");
       return;
@@ -214,12 +217,32 @@ export default function AssignmentModal({ open, onClose, onSuccess }: Assignment
         <AtomInput type="number" label="배정 학생 수(명)" value={studentCount} onChange={(e) => setStudentCount(e.target.value)} placeholder="예: 10" fullWidth />
       </Stack>
 
-      <AtomInput type="date" label="날짜" value={lessonDate} onChange={(e) => setLessonDate(e.target.value)} fullWidth required />
+      <AtomInput 
+        type="date" 
+        label="날짜" 
+        value={lessonDate} 
+        onChange={(e) => {
+          setLessonDate(e.target.value);
+          setSelectedInstructorId(""); // 날짜 변경 시 강사 선택 초기화
+        }} 
+        fullWidth 
+        required 
+      />
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
         <AtomInput select label="시작시간" value={startTime} onChange={(e) => handleStartTimeChange(e.target.value)} fullWidth required>
           {START_TIME_OPTIONS.map((opt) => (<MenuItem key={opt} value={opt}>{opt}</MenuItem>))}
         </AtomInput>
-        <AtomInput select label="종료시간" value={endTime} onChange={(e) => setEndTime(e.target.value)} fullWidth required>
+        <AtomInput 
+          select 
+          label="종료시간" 
+          value={endTime} 
+          onChange={(e) => {
+            setEndTime(e.target.value);
+            setSelectedInstructorId(""); // 시간 변경 시 강사 선택 초기화
+          }} 
+          fullWidth 
+          required
+        >
           {END_TIME_OPTIONS.map((opt) => (<MenuItem key={opt} value={opt}>{opt === "24:00" ? "24:00 (자정)" : opt}</MenuItem>))}
         </AtomInput>
       </Stack>

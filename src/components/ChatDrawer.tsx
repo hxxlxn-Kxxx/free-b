@@ -273,11 +273,18 @@ export default function ChatDrawer({ open, onClose, onUnreadCountChange }: ChatD
 
   const activeRoomName = activeRoom ? getRoomDisplayName(activeRoom) : "";
 
+  const handleClose = () => {
+    if (activeRoom) {
+      socketRef.current?.emit("leave_room", { roomId: activeRoom.roomId });
+    }
+    onClose();
+  };
+
   return (
     <Drawer 
       anchor="right" 
       open={open} 
-      onClose={onClose}
+      onClose={handleClose}
       PaperProps={{
         sx: {
           width: { xs: '100vw', sm: 440 },
@@ -322,7 +329,7 @@ export default function ChatDrawer({ open, onClose, onUnreadCountChange }: ChatD
             </Box>
           </Stack>
           <IconButton 
-            onClick={onClose} 
+            onClick={handleClose} 
             size="small"
             sx={{ bgcolor: 'white', border: '1px solid #eee' }}
           >

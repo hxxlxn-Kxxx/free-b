@@ -34,7 +34,13 @@ export default function CreateLessonPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "startsAt" || name === "endsAt") {
+        next.instructorId = ""; // 시간 변경 시 기존 선택된 강사 초기화
+      }
+      return next;
+    });
   };
 
   // 💡 DB 수업 장소 목록 조회
