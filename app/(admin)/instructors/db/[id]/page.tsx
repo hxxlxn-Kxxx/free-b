@@ -11,6 +11,7 @@ import { School, WorkspacePremium, LocationOn, ArrowBack, Edit, Notes } from "@m
 import SurfaceCard from "@/src/components/admin/SurfaceCard";
 import AtomButton from "@/src/components/atoms/AtomButton";
 import { apiClient } from "@/src/lib/apiClient";
+import { formatPhone } from "@/src/utils/format";
 
 // 💡 Prisma Json 스키마에 맞춘 타입 정의
 type Education = {
@@ -92,7 +93,7 @@ export default function InstructorDetailPage() {
   const safeRegions = instructor.preferredRegions || [];
 
   return (
-    <Box sx={{ maxWidth: 1000, mx: "auto", pb: 10 }}>
+    <Box sx={{ maxWidth: 1100, mx: "auto", pb: 10 }}>
       {/* 상단 액션 바 */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
         <Button startIcon={<ArrowBack />} onClick={() => router.back()} sx={{ mr: 2 }}>목록</Button>
@@ -112,7 +113,7 @@ export default function InstructorDetailPage() {
             )}
           </Stack>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 0.5 }}>
-            📞 {instructor.phone || "연락처 미등록"}
+            📞 {formatPhone(instructor.phone)}
           </Typography>
           <Typography variant="body1" color="text.secondary">
             ✉️ {instructor.email}

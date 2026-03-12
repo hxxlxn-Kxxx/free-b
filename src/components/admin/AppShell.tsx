@@ -62,9 +62,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
 
 
-  const activeSectionLabel = useMemo(() => {
+  const { activeSectionLabel, activeSubLabel } = useMemo(() => {
     const activeItem = adminNavigation.find((item) => pathname.startsWith(item.href));
-    return activeItem?.label ?? 'free-b Admin';
+    const activeChild = activeItem?.children?.find((child) => pathname.startsWith(child.href));
+    return {
+      activeSectionLabel: activeItem?.label || "ADMIN",
+      activeSubLabel: activeChild?.label,
+    };
   }, [pathname]);
 
   const toggleGroup = (label: string) => {
@@ -138,6 +142,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       >
         <Toolbar disableGutters sx={{ px: 1.5, minHeight: '72px !important' }}>
           <Box
+            onClick={() => router.push("/dashboard")}
             sx={{
               px: 2.25,
               py: 1.75,
@@ -147,6 +152,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
               display: 'flex',
               alignItems: 'center',
               gap: 1.5,
+              cursor: "pointer",
+              "&:hover": {
+                backgroundColor: "#F5EEDC",
+              },
+              transition: "background-color 0.2s",
             }}
           >
             <Image src="/bee.svg" alt="free-b bee logo" width={38} height={30} />
@@ -167,7 +177,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 <AtomNavItem
                   label={item.label}
                   icon={<Icon />}
-                  active={isGroupActive && !item.children ? true : isGroupActive}
+                  active={isGroupActive}
                   onClick={() => {
                     if (!item.children) {
                       router.push(item.href);
@@ -189,7 +199,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   <Collapse in={isOpen} timeout="auto" unmountOnExit>
                     <Stack spacing={0.5} sx={{ mt: 1, ml: 2 }}>
                       {item.children.map((child) => {
-                        const isActive = pathname === child.href;
+                        const isActive = pathname.startsWith(child.href);
                         return (
                           <AtomNavItem
                             key={child.href}
@@ -214,7 +224,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <Toolbar
           disableGutters
           sx={{
-            minHeight: '88px !important',
+            minHeight: "52px !important",
             px: { xs: 3, md: 5 },
             borderBottom: '1px solid',
             borderColor: 'divider',
@@ -231,27 +241,49 @@ export default function AppShell({ children }: { children: ReactNode }) {
             alignItems="center"
             sx={{ width: '100%' }}
           >
-            <Box>
-              <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography
+                sx={{
+                  color: "text.secondary",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  letterSpacing: "0.02em",
+                  opacity: 0.5,
+                }}
+              >
+                Admin
+              </Typography>
+              <Typography variant="caption" sx={{ color: "divider", fontWeight: 900, mx: 0.5 }}>
+                /
+              </Typography>
+              <Typography
+                sx={{
+                  color: activeSubLabel ? "text.secondary" : "text.primary",
+                  fontSize: activeSubLabel ? "0.95rem" : "1.25rem",
+                  fontWeight: activeSubLabel ? 600 : 800,
+                  letterSpacing: "-0.01em",
+                  opacity: activeSubLabel ? 0.7 : 1,
+                }}
+              >
                 {activeSectionLabel}
               </Typography>
-              <Stack direction="row" spacing={1.25} alignItems="center">
-                <Box
-                  sx={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: '12px 0 12px 12px',
-                    backgroundColor: '#FFF0C2',
-                    display: 'grid',
-                    placeItems: 'center',
-                    overflow: 'hidden',
-                    flexShrink: 0,
-                  }}
-                >
-                  <Image src="/bee.svg" alt="free-b bee logo" width={22} height={18} />
-                </Box>
-                <Typography variant="h5">free-b Admin</Typography>
-              </Stack>
+              {activeSubLabel && (
+                <>
+                  <Typography variant="caption" sx={{ color: "divider", fontWeight: 900, mx: 0.5 }}>
+                    /
+                  </Typography>
+                  <Typography
+                    sx={{
+                      color: "text.primary",
+                      fontSize: "1.25rem",
+                      fontWeight: 800,
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    {activeSubLabel}
+                  </Typography>
+                </>
+              )}
             </Box>
 
             <Stack direction="row" spacing={1} alignItems="center">

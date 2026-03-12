@@ -15,6 +15,7 @@ import SurfaceCard from "@/src/components/admin/SurfaceCard";
 import AtomButton from "@/src/components/atoms/AtomButton";
 import AtomInput from "@/src/components/atoms/AtomInput";
 import { apiClient } from "@/src/lib/apiClient";
+import { formatPhone } from "@/src/utils/format";
 
 const LEVEL_OPTIONS = ["전체", "주니어", "시니어", "마스터"];
 
@@ -145,13 +146,12 @@ export default function InstructorDBPage() {
       <TableContainer component={SurfaceCard}>
         <Table>
           <TableHead sx={{ bgcolor: "#FBF7ED" }}>
-            <TableRow>
+            <TableRow sx={{ "& th": { whiteSpace: "nowrap", "& .MuiTableSortLabel-root": { whiteSpace: "nowrap" } } }}>
               <TableCell align="center" sx={{ fontWeight: 700 }}>
                 <TableSortLabel
                   active={orderBy === "name"}
                   direction={orderBy === "name" ? order : "asc"}
                   onClick={() => handleRequestSort("name")}
-                  sx={{ pl: "26px" }}
                 >
                   이름
                 </TableSortLabel>
@@ -161,7 +161,6 @@ export default function InstructorDBPage() {
                   active={orderBy === "isActive"}
                   direction={orderBy === "isActive" ? order : "asc"}
                   onClick={() => handleRequestSort("isActive")}
-                  sx={{ pl: "26px" }}
                 >
                   상태
                 </TableSortLabel>
@@ -171,7 +170,6 @@ export default function InstructorDBPage() {
                   active={orderBy === "phone"}
                   direction={orderBy === "phone" ? order : "asc"}
                   onClick={() => handleRequestSort("phone")}
-                  sx={{ pl: "26px" }}
                 >
                   연락처
                 </TableSortLabel>
@@ -181,7 +179,6 @@ export default function InstructorDBPage() {
                   active={orderBy === "residenceArea"}
                   direction={orderBy === "residenceArea" ? order : "asc"}
                   onClick={() => handleRequestSort("residenceArea")}
-                  sx={{ pl: "26px" }}
                 >
                   거주지역
                 </TableSortLabel>
@@ -191,7 +188,6 @@ export default function InstructorDBPage() {
                   active={orderBy === "majorField"}
                   direction={orderBy === "majorField" ? order : "asc"}
                   onClick={() => handleRequestSort("majorField")}
-                  sx={{ pl: "26px" }}
                 >
                   전공
                 </TableSortLabel>
@@ -218,7 +214,7 @@ export default function InstructorDBPage() {
                 <TableRow key={instructor.instructorId} hover>
                   <TableCell align="center" sx={{ fontWeight: 600 }}>{instructor.name}</TableCell>
                   <TableCell align="center">{instructor.isActive ? "활동 중" : "비활동"}</TableCell>
-                  <TableCell align="center">{instructor.phone || "미등록"}</TableCell>
+                  <TableCell align="center">{formatPhone(instructor.phone)}</TableCell>
                   <TableCell align="center">{instructor.residenceArea || "미등록"}</TableCell>
                   <TableCell align="center">{instructor.majorField || "미등록"}</TableCell>
                   <TableCell align="center">

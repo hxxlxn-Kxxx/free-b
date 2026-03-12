@@ -39,6 +39,7 @@ import FilterBar from "@/src/components/admin/FilterBar";
 import PageHeader from "@/src/components/admin/PageHeader";
 import SurfaceCard from "@/src/components/admin/SurfaceCard";
 import { apiClient } from "@/src/lib/apiClient";
+import { formatPhone } from "@/src/utils/format";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/src/lib/queryKeys";
 
@@ -276,42 +277,58 @@ export default function InstructorListPage() {
 
   return (
     <Box>
-      <PageHeader
-        title="강사 운영 리스트"
-        action={
-          currentTab === 0 ? (
-            /* 월 이동 */
-            <SurfaceCard sx={{ px: 1, py: 0.75, borderRadius: 999 }}>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <IconButton size="small" onClick={() => goMonth(-1)}><ChevronLeft /></IconButton>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 1 }}>
-                  <CalendarMonth fontSize="small" color="action" />
-                  <Box component="span" sx={{ fontWeight: 700 }}>{monthLabel}</Box>
-                </Stack>
-                <IconButton size="small" onClick={() => goMonth(1)}><ChevronRight /></IconButton>
-              </Stack>
-            </SurfaceCard>
-          ) : (
-            /* 주 이동 */
-            <SurfaceCard sx={{ px: 1, py: 0.75, borderRadius: 999 }}>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <IconButton size="small" onClick={() => goWeek(-1)}><ChevronLeft /></IconButton>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 1 }}>
-                  <CalendarMonth fontSize="small" color="action" />
-                  <Box component="span" sx={{ fontWeight: 700 }}>{formatKoreanWeekLabel(weekStart)}</Box>
-                </Stack>
-                <IconButton size="small" onClick={() => goWeek(1)}><ChevronRight /></IconButton>
-              </Stack>
-            </SurfaceCard>
-          )
-        }
-      />
+      <PageHeader title="강사 운영 리스트" />
 
-      {/* 탭 전환 */}
-      <Tabs value={currentTab} onChange={(_, v) => setCurrentTab(v)} sx={{ mb: 3 }}>
-        <Tab label="전체 운영 리스트" sx={{ fontWeight: "bold", fontSize: "1rem" }} />
-        <Tab label="주간 가용성 매트릭스" sx={{ fontWeight: "bold", fontSize: "1rem" }} />
-      </Tabs>
+      {/* 탭 전환 및 날짜 이동 컨트롤 */}
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{ mb: 2 }}
+      >
+        <Tabs value={currentTab} onChange={(_, v) => setCurrentTab(v)}>
+          <Tab label="전체 운영 리스트" sx={{ fontWeight: "bold", fontSize: "0.95rem" }} />
+          <Tab label="주간 가용성 매트릭스" sx={{ fontWeight: "bold", fontSize: "0.95rem" }} />
+        </Tabs>
+
+        {currentTab === 0 ? (
+          /* 월 이동 */
+          <SurfaceCard sx={{ px: 1, py: 0.5, borderRadius: 999 }}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <IconButton size="small" onClick={() => goMonth(-1)}>
+                <ChevronLeft fontSize="small" />
+              </IconButton>
+              <Stack direction="row" spacing={0.5} alignItems="center" sx={{ px: 0.5 }}>
+                <CalendarMonth sx={{ fontSize: 16, color: "action.active" }} />
+                <Box component="span" sx={{ fontWeight: 700, fontSize: "0.9rem" }}>
+                  {monthLabel}
+                </Box>
+              </Stack>
+              <IconButton size="small" onClick={() => goMonth(1)}>
+                <ChevronRight fontSize="small" />
+              </IconButton>
+            </Stack>
+          </SurfaceCard>
+        ) : (
+          /* 주 이동 */
+          <SurfaceCard sx={{ px: 1, py: 0.5, borderRadius: 999 }}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <IconButton size="small" onClick={() => goWeek(-1)}>
+                <ChevronLeft fontSize="small" />
+              </IconButton>
+              <Stack direction="row" spacing={0.5} alignItems="center" sx={{ px: 0.5 }}>
+                <CalendarMonth sx={{ fontSize: 16, color: "action.active" }} />
+                <Box component="span" sx={{ fontWeight: 700, fontSize: "0.9rem" }}>
+                  {formatKoreanWeekLabel(weekStart)}
+                </Box>
+              </Stack>
+              <IconButton size="small" onClick={() => goWeek(1)}>
+                <ChevronRight fontSize="small" />
+              </IconButton>
+            </Stack>
+          </SurfaceCard>
+        )}
+      </Stack>
 
       {/* 필터바 (Tab 0만) */}
       {currentTab === 0 && (
@@ -364,13 +381,12 @@ export default function InstructorListPage() {
             <TableContainer>
               <Table>
                 <TableHead sx={{ backgroundColor: "#FBF7ED" }}>
-                  <TableRow>
+                  <TableRow sx={{ "& th": { whiteSpace: "nowrap", "& .MuiTableSortLabel-root": { whiteSpace: "nowrap" } } }}>
                     <TableCell align="center" sx={{ fontWeight: "bold" }}>
                       <TableSortLabel
                         active={orderBy === "name"}
                         direction={orderBy === "name" ? order : "asc"}
                         onClick={() => handleRequestSort("name")}
-                        sx={{ pl: "26px" }}
                       >
                         이름 / 분야
                       </TableSortLabel>
@@ -380,7 +396,6 @@ export default function InstructorListPage() {
                         active={orderBy === "phone"}
                         direction={orderBy === "phone" ? order : "asc"}
                         onClick={() => handleRequestSort("phone")}
-                        sx={{ pl: "26px" }}
                       >
                         연락처
                       </TableSortLabel>
@@ -390,7 +405,6 @@ export default function InstructorListPage() {
                         active={orderBy === "submissionStatus"}
                         direction={orderBy === "submissionStatus" ? order : "asc"}
                         onClick={() => handleRequestSort("submissionStatus")}
-                        sx={{ pl: "26px" }}
                       >
                         일정 제출 상태
                       </TableSortLabel>
@@ -400,7 +414,6 @@ export default function InstructorListPage() {
                         active={orderBy === "progress"}
                         direction={orderBy === "progress" ? order : "asc"}
                         onClick={() => handleRequestSort("progress")}
-                        sx={{ pl: "26px" }}
                       >
                         이번 달 가용 현황
                       </TableSortLabel>
@@ -415,7 +428,7 @@ export default function InstructorListPage() {
                         <Typography fontWeight="bold">{row.name}</Typography>
                         <Typography variant="caption" color="textSecondary">{row.majorField ?? "-"}</Typography>
                       </TableCell>
-                      <TableCell align="center">{row.phone ?? "-"}</TableCell>
+                      <TableCell align="center">{formatPhone(row.phone)}</TableCell>
                       <TableCell align="center">
                         {row.submissionStatus === "SUBMITTED" ? (
                           <Chip label="제출완료" color="success" size="small" />

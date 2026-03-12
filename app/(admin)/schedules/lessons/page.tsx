@@ -480,13 +480,12 @@ export default function ClassManagementPage() {
         ) :
         (<Table>
           <TableHead sx={{ bgcolor: "#FBF7ED" }}>
-            <TableRow>
+            <TableRow sx={{ "& th": { whiteSpace: "nowrap" } }}>
               <TableCell align="center" sx={{ fontWeight: 700 }}>
                 <TableSortLabel
                   active={orderBy === "lectureTitle"}
                   direction={orderBy === "lectureTitle" ? order : "asc"}
                   onClick={() => handleRequestSort("lectureTitle")}
-                  sx={{ pl: "26px" }}
                 >
                   수업명
                 </TableSortLabel>
@@ -496,7 +495,6 @@ export default function ClassManagementPage() {
                   active={orderBy === "location"}
                   direction={orderBy === "location" ? order : "asc"}
                   onClick={() => handleRequestSort("location")}
-                  sx={{ pl: "26px" }}
                 >
                   장소
                 </TableSortLabel>
@@ -506,7 +504,6 @@ export default function ClassManagementPage() {
                   active={orderBy === "instructor"}
                   direction={orderBy === "instructor" ? order : "asc"}
                   onClick={() => handleRequestSort("instructor")}
-                  sx={{ pl: "26px" }}
                 >
                   담당 강사
                 </TableSortLabel>
@@ -516,7 +513,6 @@ export default function ClassManagementPage() {
                   active={orderBy === "startsAt"}
                   direction={orderBy === "startsAt" ? order : "asc"}
                   onClick={() => handleRequestSort("startsAt")}
-                  sx={{ pl: "26px" }}
                 >
                   날짜
                 </TableSortLabel>
@@ -526,7 +522,6 @@ export default function ClassManagementPage() {
                   active={orderBy === "startsAt"}
                   direction={orderBy === "startsAt" ? order : "asc"}
                   onClick={() => handleRequestSort("startsAt")}
-                  sx={{ pl: "26px" }}
                 >
                   시간
                 </TableSortLabel>
@@ -536,7 +531,6 @@ export default function ClassManagementPage() {
                   active={orderBy === "status"}
                   direction={orderBy === "status" ? order : "asc"}
                   onClick={() => handleRequestSort("status")}
-                  sx={{ pl: "26px" }}
                 >
                   상태
                 </TableSortLabel>
