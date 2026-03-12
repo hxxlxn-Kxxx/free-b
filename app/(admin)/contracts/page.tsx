@@ -733,9 +733,8 @@ function ContractsContent() {
                   {/* 실패 또는 대기 중일 때 재생성 버튼 노출 */}
                   {(drawerContract.pdfGenerationStatus === "FAILED" || drawerContract.pdfGenerationStatus === "PENDING") && (
                     <AtomButton
-                      atomVariant="outline"
+                      atomVariant={drawerContract.pdfGenerationStatus === "FAILED" ? "danger" : "outline"}
                       size="small"
-                      color={drawerContract.pdfGenerationStatus === "FAILED" ? "error" : "primary"}
                       sx={{ width: "100%", py: 0.5 }}
                       onClick={handleRegenerate}
                       disabled={regenerateMutation.isPending}

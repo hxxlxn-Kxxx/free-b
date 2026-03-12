@@ -120,28 +120,30 @@ export default function GpsMonitoringPage() {
       </Grid>
 
       <FilterBar>
-        <AtomInput
-          placeholder="강사명 또는 수업명 검색"
-          value={filterQuery}
-          onChange={(e) => setFilterQuery(e.target.value)}
-          size="small"
-          sx={{ width: 320 }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <Search fontSize="small" color="action" sx={{ mr: 1 }} />
-              ),
-            }
-          }}
-        />
-        <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
-          <AtomButton 
-            atomVariant="outline" 
-            onClick={() => setFilterQuery('')}
-            sx={{ minWidth: 80 }}
-          >
-            초기화
-          </AtomButton>
+        <Stack direction="row" spacing={2} sx={{ width: '100%', alignItems: 'center' }}>
+          <AtomInput
+            placeholder="강사명 또는 수업명 검색"
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+            size="small"
+            sx={{ flex: 1, maxWidth: 500 }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <Search fontSize="small" color="action" sx={{ mr: 1 }} />
+                ),
+              }
+            }}
+          />
+          <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
+            <AtomButton 
+              atomVariant="outline" 
+              onClick={() => setFilterQuery('')}
+              sx={{ minWidth: 80 }}
+            >
+              초기화
+            </AtomButton>
+          </Stack>
         </Stack>
       </FilterBar>
 
