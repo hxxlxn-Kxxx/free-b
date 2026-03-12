@@ -23,12 +23,12 @@ const DEMO_ADMINS = [
   {
     name: "김도윤 관리자",
     email: "admin1@museum-demo.kr",
-    description: "전체 시스템 관리자",
+    description: "전체 시스템 및 보안 관리",
   },
   {
     name: "박서연 관리자",
     email: "admin2@museum-demo.kr",
-    description: "운영현황 및 정산관리",
+    description: "운영 현황 및 정산 관리",
   },
 ];
 
@@ -111,21 +111,8 @@ export default function LoginPage() {
                   ADMIN PORTAL
                 </Typography>
                 
-                <Stack direction="row" alignItems="center" spacing={2} sx={{ mt: 1.5 }}>
-                  <Box
-                    sx={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: "20px 0 20px 20px",
-                      display: "grid",
-                      placeItems: "center",
-                      backgroundColor: "#f6e8a4ff",
-                      overflow: "hidden",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Image src="/bee.svg" alt="free-b bee logo" width={44} height={36} priority />
-                  </Box>
+                <Stack direction="row" alignItems="center" spacing={2} sx={{ mt: 2 }}>
+                  <Image src="/bee.svg" alt="free-b bee logo" width={56} height={46} priority />
                   <Typography variant="h2" sx={{ fontWeight: 900, color: '#251B10', lineHeight: 1 }}>
                     free-b
                   </Typography>
