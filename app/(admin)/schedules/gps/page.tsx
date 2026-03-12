@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { 
   Box, 
-  Card, 
-  CardContent, 
   Grid, 
   Stack, 
   Typography, 
@@ -17,11 +15,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
-  Chip,
   IconButton,
-  TextField,
-  InputAdornment,
   Tooltip
 } from '@mui/material';
 import { 
@@ -38,6 +32,12 @@ import {
 } from '@mui/icons-material';
 import { apiClient } from '@/src/lib/apiClient';
 import { LessonGpsStatus } from '@/src/types/backend';
+import PageHeader from '@/src/components/admin/PageHeader';
+import SurfaceCard from '@/src/components/admin/SurfaceCard';
+import FilterBar from '@/src/components/admin/FilterBar';
+import AtomButton from '@/src/components/atoms/AtomButton';
+import AtomInput from '@/src/components/atoms/AtomInput';
+import AtomBadge from '@/src/components/atoms/AtomBadge';
 
 export default function GpsMonitoringPage() {
   const router = useRouter();
@@ -82,28 +82,23 @@ export default function GpsMonitoringPage() {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
-        <Box>
-          <Typography variant="h4" fontWeight="bold" sx={{ color: 'primary.main', mb: 1 }}>
-            실시간 GPS 모니터링
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            금일({today}) 진행되는 모든 수업의 위치 및 출결 상태를 실시간으로 모니터링합니다.
-          </Typography>
-        </Box>
-        <IconButton 
-          onClick={() => refetch()} 
-          disabled={isFetching}
-          sx={{ 
-            bgcolor: 'white', 
-            border: '1px solid', 
-            borderColor: 'divider',
-            '&:hover': { bgcolor: '#FBF7ED' }
-          }}
-        >
-          <Refresh className={isFetching ? 'animate-spin' : ''} />
-        </IconButton>
-      </Stack>
+      <PageHeader
+        title="실시간 GPS 모니터링"
+        action={
+          <AtomButton
+            atomVariant="outline"
+            startIcon={<Refresh className={isFetching ? 'animate-spin' : ''} />}
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            데이터 갱신
+          </AtomButton>
+        }
+      />
+      
+      <Typography variant="body2" color="text.secondary" sx={{ mt: -3, mb: 4 }}>
+        금일({today}) 진행되는 모든 수업의 위치 및 출결 상태를 실시간으로 모니터링합니다.
+      </Typography>
 
       {/* 요약 카드 영역 */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -124,42 +119,47 @@ export default function GpsMonitoringPage() {
         </Grid>
       </Grid>
 
-      {/* 모니터링 리스트 */}
-      <Paper sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
-        <Box sx={{ p: 2.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#FBF7ED' }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="subtitle1" fontWeight="bold">오늘의 수업 모니터링</Typography>
-            <TextField
-              size="small"
-              placeholder="강사명 또는 수업명 검색"
-              value={filterQuery}
-              onChange={(e) => setFilterQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search fontSize="small" color="action" />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ width: 300, bgcolor: 'white' }}
-            />
-          </Stack>
-        </Box>
+      <FilterBar>
+        <AtomInput
+          placeholder="강사명 또는 수업명 검색"
+          value={filterQuery}
+          onChange={(e) => setFilterQuery(e.target.value)}
+          size="small"
+          sx={{ width: 320 }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <Search fontSize="small" color="action" sx={{ mr: 1 }} />
+              ),
+            }
+          }}
+        />
+        <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
+          <AtomButton 
+            atomVariant="outline" 
+            onClick={() => setFilterQuery('')}
+            sx={{ minWidth: 80 }}
+          >
+            초기화
+          </AtomButton>
+        </Stack>
+      </FilterBar>
+
+      <TableContainer component={SurfaceCard}>
 
         {isLoading ? (
           <Box display="flex" justifyContent="center" py={8}>
             <CircularProgress size={40} />
           </Box>
         ) : (
-          <TableContainer>
             <Table sx={{ minWidth: 800 }}>
-              <TableHead sx={{ bgcolor: '#FAFAFA' }}>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700 }}>수업 정보</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>강사</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>수업 시간</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>GPS 시퀀스</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>리스크 현황</TableCell>
+              <TableHead sx={{ bgcolor: '#FBF7ED' }}>
+                <TableRow sx={{ '& th': { whiteSpace: 'nowrap', fontWeight: 700 } }}>
+                  <TableCell align="center">수업 정보</TableCell>
+                  <TableCell align="center">강사</TableCell>
+                  <TableCell align="center">수업 시간</TableCell>
+                  <TableCell align="center">GPS 시퀀스</TableCell>
+                  <TableCell align="center">리스크 현황</TableCell>
                   <TableCell />
                 </TableRow>
               </TableHead>
@@ -196,11 +196,11 @@ export default function GpsMonitoringPage() {
                           <StatusIndicator label="종료" active={g.finished} time={formatTime(g.finishedAt)} />
                         </Stack>
                       </TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={0.5}>
-                          {g.suspicious && <Chip label="위치 의심" size="small" color="error" sx={{ fontWeight: 700, height: 20, fontSize: '0.65rem' }} />}
-                          {g.commuteRiskDetected && <Chip label="지각 위험" size="small" color="error" variant="outlined" sx={{ fontWeight: 700, height: 20, fontSize: '0.65rem' }} />}
-                          {g.delayedFinish && <Chip label="지연 종료" size="small" color="warning" sx={{ fontWeight: 700, height: 20, fontSize: '0.65rem' }} />}
+                      <TableCell align="center">
+                        <Stack direction="row" spacing={0.5} justifyContent="center">
+                          {g.suspicious && <AtomBadge tone="rejected" label="위치 의심" />}
+                          {g.commuteRiskDetected && <AtomBadge tone="late" label="지각 위험" />}
+                          {g.delayedFinish && <AtomBadge tone="requested" label="지연 종료" />}
                         </Stack>
                       </TableCell>
                       <TableCell align="right">
@@ -213,9 +213,8 @@ export default function GpsMonitoringPage() {
                 )}
               </TableBody>
             </Table>
-          </TableContainer>
         )}
-      </Paper>
+      </TableContainer>
 
       {/* 정책 안내 */}
       <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
@@ -232,41 +231,74 @@ export default function GpsMonitoringPage() {
 
 function SummaryCard({ title, value, icon, color, highlight }: { title: string; value: number; icon: any; color?: string; highlight?: boolean }) {
   return (
-    <Card variant="outlined" sx={{ borderRadius: 3, bgcolor: color || 'white', border: highlight ? '2px solid #E53E3E' : '1px solid #eee' }}>
-      <CardContent sx={{ p: '20px !important' }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Box>
-            <Typography variant="caption" color="text.secondary" display="block" gutterBottom sx={{ fontWeight: 600 }}>{title}</Typography>
-            <Typography variant="h4" fontWeight="bold" sx={{ color: highlight ? '#E53E3E' : 'inherit' }}>{value}</Typography>
-          </Box>
-          <Box sx={{ p: 1, bgcolor: 'rgba(0,0,0,0.04)', borderRadius: '50%' }}>
-            {icon}
-          </Box>
-        </Stack>
-      </CardContent>
-    </Card>
+    <SurfaceCard 
+      sx={{ 
+        p: '20px !important',
+        bgcolor: color || 'white', 
+        border: highlight ? '2px solid #B24231' : '1px solid #EFD9A2',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        boxShadow: highlight ? '0 4px 12px rgba(178, 66, 49, 0.1)' : 'none'
+      }}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Box>
+          <Typography variant="caption" color="text.secondary" display="block" gutterBottom sx={{ fontWeight: 700, letterSpacing: '0.02em', mb: 0.5 }}>
+            {title}
+          </Typography>
+          <Typography variant="h4" fontWeight="800" sx={{ color: highlight ? '#B24231' : '#251B10' }}>
+            {value}
+          </Typography>
+        </Box>
+        <Box 
+          sx={{ 
+            p: 1.25, 
+            bgcolor: highlight ? 'rgba(178, 66, 49, 0.08)' : 'rgba(239, 217, 162, 0.15)', 
+            borderRadius: '12px 0 12px 12px',
+            color: highlight ? '#B24231' : '#B7791F'
+          }}
+        >
+          {icon}
+        </Box>
+      </Stack>
+    </SurfaceCard>
   );
 }
 
 function StatusIndicator({ label, active, time }: { label: string; active: boolean; time?: string }) {
+  const getColors = () => {
+    if (!active) return { bg: 'transparent', border: '#EFD9A2', text: '#A2907E', op: 0.4 };
+    switch(label) {
+      case '출발': return { bg: '#E3F2FD', border: '#90CAF9', text: '#1565C0', op: 1 };
+      case '도착': return { bg: '#EAF7F0', border: '#A5D6A7', text: '#2F6B2F', op: 1 };
+      case '종료': return { bg: '#F3ECFA', border: '#CE93D8', text: '#7C5C99', op: 1 };
+      default: return { bg: '#F5EFE2', border: '#EFD9A2', text: '#5F5445', op: 1 };
+    }
+  };
+
+  const colors = getColors();
+
   return (
     <Box 
       sx={{ 
-        px: 1, py: 0.5, 
-        borderRadius: 1, 
+        px: 1.25, py: 0.75, 
+        borderRadius: '8px 0 8px 8px', 
         border: '1px solid', 
-        borderColor: active ? 'transparent' : 'divider',
-        bgcolor: active ? (label === '출발' ? '#E3F2FD' : label === '도착' ? '#E8F5E9' : '#F3E5F5') : 'transparent',
-        opacity: active ? 1 : 0.4,
-        minWidth: 54,
-        textAlign: 'center'
+        borderColor: colors.border,
+        bgcolor: colors.bg,
+        opacity: colors.op,
+        minWidth: 60,
+        textAlign: 'center',
+        transition: 'all 0.2s'
       }}
     >
-      <Typography variant="caption" display="block" sx={{ fontWeight: 800, color: active ? 'inherit' : 'text.disabled', fontSize: '0.65rem' }}>
+      <Typography variant="caption" display="block" sx={{ fontWeight: 800, color: colors.text, fontSize: '0.7rem' }}>
         {label}
       </Typography>
       {active && time !== '-' && (
-        <Typography variant="caption" sx={{ fontSize: '0.55rem', fontWeight: 600 }}>{time}</Typography>
+        <Typography variant="caption" sx={{ fontSize: '0.6rem', fontWeight: 600, color: colors.text }}>{time}</Typography>
       )}
     </Box>
   );

@@ -323,13 +323,12 @@ export default function LocationManagementPage() {
         ) : (
           <Table>
             <TableHead sx={{ bgcolor: "#FBF7ED" }}>
-              <TableRow>
+              <TableRow sx={{ "& th": { whiteSpace: "nowrap" } }}>
                 <TableCell align="center" sx={{ fontWeight: 700 }}>
                   <TableSortLabel
                     active={orderBy === "locationName"}
                     direction={orderBy === "locationName" ? order : "asc"}
                     onClick={() => handleRequestSort("locationName")}
-                    sx={{ pl: "26px" }}
                   >
                     장소명
                   </TableSortLabel>
@@ -339,7 +338,6 @@ export default function LocationManagementPage() {
                     active={orderBy === "address"}
                     direction={orderBy === "address" ? order : "asc"}
                     onClick={() => handleRequestSort("address")}
-                    sx={{ pl: "26px" }}
                   >
                     주소
                   </TableSortLabel>
@@ -350,7 +348,6 @@ export default function LocationManagementPage() {
                     active={orderBy === "createdAt"}
                     direction={orderBy === "createdAt" ? order : "asc"}
                     onClick={() => handleRequestSort("createdAt")}
-                    sx={{ pl: "26px" }}
                   >
                     등록일
                   </TableSortLabel>
@@ -360,7 +357,6 @@ export default function LocationManagementPage() {
                     active={orderBy === "locationStatus"}
                     direction={orderBy === "locationStatus" ? order : "asc"}
                     onClick={() => handleRequestSort("locationStatus")}
-                    sx={{ pl: "26px" }}
                   >
                     상태
                   </TableSortLabel>

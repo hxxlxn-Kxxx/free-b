@@ -12,18 +12,17 @@ export default function PageHeader({
   description,
   action,
 }: PageHeaderProps) {
+  if (!description && !action) return null;
+
   return (
     <Stack
       direction={{ xs: 'column', md: 'row' }}
       spacing={2}
       justifyContent="space-between"
       alignItems={{ xs: 'flex-start', md: 'center' }}
-      sx={{ mb: 4 }}
+      sx={{ mb: 3 }}
     >
       <Box>
-        <Typography variant="h2" sx={{ mb: description ? 1 : 0 }}>
-          {title}
-        </Typography>
         {description ? (
           <Typography variant="body1" color="text.secondary">
             {description}

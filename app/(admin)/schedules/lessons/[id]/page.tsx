@@ -47,6 +47,16 @@ type LessonDetail = {
   venueLng?: number;
   kakaoPlaceId?: string;
   sourceType?: LessonSourceType | null;
+  // GPS Status
+  departed?: boolean;
+  departedAt?: string;
+  arrived?: boolean;
+  arrivedAt?: string;
+  finished?: boolean;
+  finishedAt?: string;
+  suspicious?: boolean;
+  delayedFinish?: boolean;
+  commuteRiskDetected?: boolean;
 };
 
 type AvailableInstructor = {
@@ -503,9 +513,6 @@ function LessonReportsPanel({ lessonId }: { lessonId: string }) {
   );
 }
 
-// ─────────────────────────────────────────────
-// 체크인 타임라인 컴포넌트
-// ─────────────────────────────────────────────
 function CheckinTimeline({ lessonId }: { lessonId: string }) {
   const { data: eventsData, isLoading, error: queryError } = useQuery({
     queryKey: ["attendanceEvents", lessonId],
@@ -555,7 +562,6 @@ function CheckinTimeline({ lessonId }: { lessonId: string }) {
 
         return (
           <Box key={event.attendanceEventId} sx={{ display: "flex", gap: 2 }}>
-            {/* 타임라인 라인 + 아이콘 */}
             <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 36 }}>
               <Box
                 sx={{
@@ -572,20 +578,20 @@ function CheckinTimeline({ lessonId }: { lessonId: string }) {
               )}
             </Box>
 
-            {/* 이벤트 카드 */}
             <Paper
               elevation={0}
               sx={{
                 flex: 1, p: 2.5, mb: isLast ? 0 : 2,
                 border: "1px solid #E8E8E8", borderRadius: 2,
-                bgcolor: "#FAFAFA",
+                bgcolor: event.locationStatus === "SUSPICIOUS" ? "#FFF5F5" : "#FAFAFA",
+                borderColor: event.locationStatus === "SUSPICIOUS" ? "#FEB2B2" : "#E8E8E8",
+                borderWidth: event.locationStatus === "SUSPICIOUS" ? 2 : 1,
               }}
             >
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                 <Typography fontWeight={700} sx={{ color: meta.color }}>
                   {meta.label}
                 </Typography>
-                {/* timingStatus 배지 */}
                 <Chip
                   label={event.timingStatus === "ON_TIME" ? "정시" : "지각"}
                   size="small"
@@ -595,7 +601,6 @@ function CheckinTimeline({ lessonId }: { lessonId: string }) {
                     color: event.timingStatus === "ON_TIME" ? "#2E7D32" : "#C62828",
                   }}
                 />
-                {/* locationStatus 배지 */}
                 <Chip
                   label={event.locationStatus === "OK" ? "위치 정상" : "위치 의심"}
                   size="small"
@@ -623,13 +628,16 @@ function CheckinTimeline({ lessonId }: { lessonId: string }) {
                   </Stack>
                 )}
                 {event.accuracyMeters != null && (
-                  <Typography variant="body2" color="text.secondary">
-                    GPS 정확도: ±{event.accuracyMeters}m
-                  </Typography>
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <MyLocation sx={{ fontSize: 14, color: "text.secondary" }} />
+                    <Typography variant="body2" color="text.secondary">
+                      GPS 정확도: ±{event.accuracyMeters}m
+                    </Typography>
+                  </Stack>
                 )}
               </Stack>
               
-              {event.validationReason && (
+              {event.validationReason && event.validationReason !== "OK" && (
                 <Box sx={{ mt: 1.5, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1.5, border: "1px solid #FFE082" }}>
                   <Typography variant="caption" color="#BD7000" sx={{ display: "flex", alignItems: "center", gap: 0.5, fontWeight: 700 }}>
                     <InfoOutlined sx={{ fontSize: 14 }} /> 검증 실패 사유: {event.validationReason}
@@ -846,7 +854,7 @@ export default function ClassDetailPage() {
   const lessonId = lesson.lessonId || lesson.id || (id as string);
 
   return (
-    <Box sx={{ maxWidth: 900, mx: "auto", pb: 10 }}>
+    <Box sx={{ maxWidth: 1100, mx: "auto", pb: 10 }}>
       {/* 상단 헤더 및 버튼 */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
         <Button startIcon={<ArrowBack />} onClick={() => router.back()} sx={{ mr: 2 }} disabled={isEditing}>목록</Button>
@@ -1048,58 +1056,17 @@ export default function ClassDetailPage() {
       {/* ── 탭 1: 체크인 현황 */}
       {tabIndex === 1 && (
         <Paper sx={{ p: 4, borderRadius: 3 }}>
-          <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
-            체크인 이벤트 타임라인
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            강사의 출발(DEPART) · 도착(ARRIVE) · 완료(FINISH) 이벤트를 시간순으로 표시합니다.
-          </Typography>
-
-          {/* GPS 모니터링 요약 카드 */}
-          <Paper 
-            variant="outlined" 
-            sx={{ 
-              mb: 4, p: 3, borderRadius: 3, 
-              bgcolor: (lesson as any).suspicious ? "#FFF5F5" : "#F8F9FA",
-              borderColor: (lesson as any).suspicious ? "#FEB2B2" : "#E0E0E0",
-              borderWidth: (lesson as any).suspicious ? 2 : 1
-            }}
-          >
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
-              <Box>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <MyLocation color="primary" /> 스마트 GPS 모니터링 요약
-                </Typography>
-                <Typography variant="caption" color="text.secondary">백엔드 실시간 집계 정책 반영</Typography>
-              </Box>
-              <Stack direction="row" spacing={1}>
-                {(lesson as any).suspicious && <Chip label="위치 의심" size="small" color="error" sx={{ fontWeight: 800 }} />}
-                {(lesson as any).delayedFinish && <Chip label="지연 종료" size="small" color="warning" sx={{ fontWeight: 700 }} />}
-                {(lesson as any).commuteRiskDetected && <Chip label="지각 위험(ETA)" size="small" color="error" variant="outlined" sx={{ fontWeight: 700 }} />}
-              </Stack>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 3 }}>
+            <Box>
+              <Typography variant="h6" fontWeight="bold">체크인 이벤트 타임라인</Typography>
+              <Typography variant="body2" color="text.secondary">강사의 출발·도착·완료 이벤트를 실시간 GPS 검증 결과와 함께 표시합니다.</Typography>
+            </Box>
+            <Stack direction="row" spacing={1}>
+              {lesson?.suspicious && <Chip label="위치 의심" size="small" color="error" sx={{ fontWeight: 800 }} />}
+              {lesson?.delayedFinish && <Chip label="지연 종료" size="small" color="warning" sx={{ fontWeight: 700 }} />}
+              {lesson?.commuteRiskDetected && <Chip label="지각 위험(ETA)" size="small" color="error" variant="outlined" sx={{ fontWeight: 700 }} />}
             </Stack>
-            
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Box sx={{ p: 2, bgcolor: "#fff", borderRadius: 2, border: "1px solid #eee" }}>
-                  <Typography variant="caption" color="text.secondary" display="block">출발 확인</Typography>
-                  <Typography variant="body2" fontWeight="bold">{(lesson as any).departed ? `완료 (${formatDateTime((lesson as any).departedAt)})` : "미출발"}</Typography>
-                </Box>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Box sx={{ p: 2, bgcolor: "#fff", borderRadius: 2, border: "1px solid #eee" }}>
-                  <Typography variant="caption" color="text.secondary" display="block">도착 확인</Typography>
-                  <Typography variant="body2" fontWeight="bold">{(lesson as any).arrived ? `완료 (${formatDateTime((lesson as any).arrivedAt)})` : "미도착"}</Typography>
-                </Box>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Box sx={{ p: 2, bgcolor: "#fff", borderRadius: 2, border: "1px solid #eee" }}>
-                  <Typography variant="caption" color="text.secondary" display="block">종료 확인</Typography>
-                  <Typography variant="body2" fontWeight="bold">{(lesson as any).finished ? `완료 (${formatDateTime((lesson as any).finishedAt)})` : "진행 중"}</Typography>
-                </Box>
-              </Grid>
-            </Grid>
-          </Paper>
+          </Stack>
 
           <CheckinTimeline lessonId={lessonId} />
         </Paper>

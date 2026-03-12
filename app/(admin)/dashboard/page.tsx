@@ -46,13 +46,13 @@ type ContractRow = {
 // 상태별 캘린더 이벤트 색상
 // ─────────────────────────────────────────────
 const STATUS_COLOR_MAP: Record<LessonStatus, string> = {
-  PENDING: "#E65100",       // 빨강 계열 (미배정)
-  ACCEPTED: "#1565C0",      // 파랑 (요청중)
-  CONTRACT_SIGNED: "#2E7D32", // 초록 (확정)
-  UPDATED: "#6A1B9A",       // 보라 (수정됨)
-  IN_PROGRESS: "#00838F",   // 청록 (진행중)
-  COMPLETED: "#546E7A",     // 회색 (완료)
-  CANCELLED: "#9E9E9E",     // 연회색 (취소)
+  PENDING: "#D45D43",         // 코랄 (미배정 - 긴급)
+  ACCEPTED: "#E1B73E",        // 골드 (요청중 - 주의)
+  CONTRACT_SIGNED: "#6F8C52", // 뮤트 그린 (배정완료)
+  UPDATED: "#A68A64",         // 뮤트 브라운 (수정됨)
+  IN_PROGRESS: "#8C6C1B",     // 다크 골드 (진행중)
+  COMPLETED: "#7A6A58",       // 뮤트 슬레이트 (완료)
+  CANCELLED: "#CBD5E1",       // 연한 슬레이트 (취소)
 };
 
 // ─────────────────────────────────────────────
@@ -382,6 +382,7 @@ export default function DashboardPage() {
               events={calendarEvents}
               eventClick={handleEventClick}
               eventDisplay="block"
+              displayEventTime={false}
               dayMaxEvents={3}
               moreLinkText={(n) => `+${n}건 더보기`}
             />
