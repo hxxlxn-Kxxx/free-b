@@ -113,6 +113,21 @@ export default function DashboardPage() {
   const [{ data: lessons = [], isLoading: isLessonsLoading }, { data: contracts = [], isLoading: isContractsLoading }] = results;
   const isLoading = isLessonsLoading || isContractsLoading;
 
+  // ── 오늘 날짜 (YYYY-MM-DD)
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // ── GPS 상태 로드 (오늘 수업 기준)
+  const { data: gpsStatusList = [], isLoading: isGpsLoading } = useQuery({
+    queryKey: ["gpsStatus", todayStr],
+    queryFn: () => apiClient.getGpsStatus(todayStr),
+    enabled: !!todayStr,
+    refetchInterval: 60000, // 1분마다 갱신
+  });
+
+  useEffect(() => {
+    console.log("[Dashboard] GPS Status List:", gpsStatusList);
+  }, [gpsStatusList]);
+
 
   // 추천 현황 상태
   const [selectedEvent, setSelectedEvent] = useState<{ title: string; location: string; status: LessonStatus } | null>(null);
@@ -194,8 +209,7 @@ export default function DashboardPage() {
 
   // ── 오늘 수업 Live 섹션
   const todayEvents = lessons
-    .filter((l: LessonRow) => l.status !== "CANCELLED" && isToday(l.startsAt))
-    .slice(0, 5); // 최대 5건만 표시
+    .filter((l: LessonRow) => l.status !== "CANCELLED" && isToday(l.startsAt));
 
   const handleDatesSet = (dateInfo: DatesSetArg) => {
     const label = new Intl.DateTimeFormat("ko-KR", {
@@ -379,9 +393,21 @@ export default function DashboardPage() {
           <Stack spacing={3}>
             {/* 오늘 수업 Live */}
             <SurfaceCard sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
+              <Typography variant="h6" sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
                 오늘 수업 현황
+                <Box sx={{ 
+                  width: 8, height: 8, bgcolor: "#f44336", borderRadius: "50%", 
+                  animation: "pulse 1.5s infinite" 
+                }} />
+                <Typography variant="caption" sx={{ color: "#f44336", fontWeight: 800 }}>LIVE</Typography>
               </Typography>
+              <style>{`
+                @keyframes pulse {
+                  0% { opacity: 1; transform: scale(1); }
+                  50% { opacity: 0.4; transform: scale(1.2); }
+                  100% { opacity: 1; transform: scale(1); }
+                }
+              `}</style>
               {isLoading ? (
                 <Box display="flex" justifyContent="center" py={3}>
                   <CircularProgress size={28} />
@@ -391,55 +417,88 @@ export default function DashboardPage() {
                   오늘 예정된 수업이 없습니다.
                 </Typography>
               ) : (
-                <Stack spacing={1.5}>
-                  {todayEvents.map((lesson: LessonRow) => {
-                    const location = lesson.museum || lesson.venueName || lesson.region || "-";
-                    const startTime = new Date(lesson.startsAt).toLocaleTimeString("ko-KR", {
-                      hour: "2-digit", minute: "2-digit", hour12: false,
-                    });
-                    const statusInfo = LESSON_STATUS_MAP[lesson.status];
-                    return (
-                      <Box
-                        key={lesson.lessonId}
-                        sx={{
-                          display: "grid",
-                          gridTemplateColumns: "auto 1fr auto",
-                          gap: 1.5,
-                          alignItems: "center",
-                          px: 2, py: 1.5,
-                          borderRadius: 4,
-                          backgroundColor: "#FFFCF5",
-                          borderLeft: `3px solid ${STATUS_COLOR_MAP[lesson.status] ?? "#9E9E9E"}`,
-                        }}
-                      >
-                        <PlaceRoundedIcon sx={{ color: "primary.main", fontSize: 18 }} />
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                            {lesson.lectureTitle || "수업"}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {location}
-                          </Typography>
+                <Box sx={{ maxHeight: 450, overflowY: "auto", pr: 0.5 }}>
+                  <Stack spacing={1}>
+                    {todayEvents.map((lesson: LessonRow) => {
+                      const location = lesson.museum || lesson.venueName || lesson.region || "-";
+                      const startTime = new Date(lesson.startsAt).toLocaleTimeString("ko-KR", {
+                        hour: "2-digit", minute: "2-digit", hour12: false,
+                      });
+                      const statusInfo = LESSON_STATUS_MAP[lesson.status];
+                      const gps = Array.isArray(gpsStatusList) 
+                        ? gpsStatusList.find((g: any) => g.lessonId === lesson.lessonId)
+                        : null;
+
+                      return (
+                        <Box
+                          key={lesson.lessonId}
+                          onClick={() => router.push(`/schedules/lessons/${lesson.lessonId}`)}
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns: "36px 1fr auto",
+                            gap: 1.5,
+                            alignItems: "center",
+                            px: 2, py: 1.25,
+                            borderRadius: "12px",
+                            backgroundColor: "#FFFCF5",
+                            borderLeft: `5px solid ${STATUS_COLOR_MAP[lesson.status] ?? "#9E9E9E"}`,
+                            cursor: "pointer",
+                            transition: "all 0.2s",
+                            '&:hover': { backgroundColor: "#FFF9E5", transform: "translateX(4px)" },
+                          }}
+                        >
+                          <Box sx={{ 
+                            width: 32, height: 32, borderRadius: "50%", 
+                            bgcolor: "rgba(140, 108, 27, 0.08)", 
+                            display: "flex", alignItems: "center", justifyContent: "center" 
+                          }}>
+                            <PlaceRoundedIcon sx={{ color: "#8C6C1B", fontSize: 18 }} />
+                          </Box>
+                          
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.85rem", lineHeight: 1.2, mb: 0.25 }}>
+                              {lesson.lectureTitle || "수업"}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                              {location}
+                            </Typography>
+
+                            {/* GPS 컴팩트 배지 */}
+                            <Stack direction="row" spacing={0.5} gap={0.5}>
+                              {gps && (
+                                <>
+                                  {gps.departed && <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#1565C0" }} />}
+                                  {gps.arrived && <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#2E7D32" }} />}
+                                  {gps.finished && <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#7B1FA2" }} />}
+                                  <Typography variant="caption" sx={{ fontSize: "0.65rem", fontWeight: 700, color: "primary.main" }}>
+                                    {gps.departed ? (gps.arrived ? (gps.finished ? "수업 종료" : "도착완료") : "이동중") : "대기중"}
+                                  </Typography>
+                                </>
+                              )}
+                            </Stack>
+                          </Box>
+
+                          <Box sx={{ textAlign: "right", minWidth: 60 }}>
+                            <Typography variant="caption" sx={{ fontWeight: 800, color: "text.primary", display: "block" }}>
+                              {startTime}
+                            </Typography>
+                            <Chip
+                              label={statusInfo?.label ?? lesson.status}
+                              size="small"
+                              sx={{
+                                fontSize: "0.6rem", height: 18,
+                                bgcolor: (STATUS_COLOR_MAP[lesson.status] || "#9E9E9E") + "15",
+                                color: STATUS_COLOR_MAP[lesson.status] || "#9E9E9E",
+                                fontWeight: 800,
+                                borderRadius: 1
+                              }}
+                            />
+                          </Box>
                         </Box>
-                        <Box sx={{ textAlign: "right" }}>
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            {startTime}
-                          </Typography>
-                          <Chip
-                            label={statusInfo?.label ?? lesson.status}
-                            size="small"
-                            sx={{
-                              fontSize: "0.65rem", height: 18,
-                              bgcolor: (STATUS_COLOR_MAP[lesson.status] || "#9E9E9E") + "22",
-                              color: STATUS_COLOR_MAP[lesson.status] || "#9E9E9E",
-                              fontWeight: 700,
-                            }}
-                          />
-                        </Box>
-                      </Box>
-                    );
-                  })}
-                </Stack>
+                      );
+                    })}
+                  </Stack>
+                </Box>
               )}
             </SurfaceCard>
 

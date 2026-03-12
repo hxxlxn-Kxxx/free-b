@@ -212,6 +212,10 @@ export const apiClient = {
 
   // --- Attendance ---
   getAttendances: () => request<any>("/attendances"),
+  // 오늘 수업 GPS 요약 상태 - GET /lessons/gps-status?date=YYYY-MM-DD
+  getGpsStatus: (date: string) => 
+    request<any>(`/lessons/gps-status?date=${date}`),
+
   getAttendanceEvents: (params: { lessonId?: string; eventType?: string }) => {
     const qs = new URLSearchParams();
     if (params.lessonId) qs.set("lessonId", params.lessonId);

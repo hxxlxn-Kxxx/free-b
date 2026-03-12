@@ -187,3 +187,60 @@ export const getLessonStatusColor = (
       return "default";
   }
 };
+// ============ GPS/Attendance MVP Types ============
+
+/** 오늘 수업 GPS 요약 상태 (GET /lessons/gps-status) */
+export type LessonGpsStatus = {
+  lessonId: string;
+  lectureTitle: string;
+  instructorName: string;
+  startsAt: string;
+  endsAt: string;
+  
+  // 상태 및 시각
+  departed: boolean;
+  departedAt?: string;
+  arrived: boolean;
+  arrivedAt?: string;
+  finished: boolean;
+  finishedAt?: string;
+  
+  // 리스크 지표
+  delayedFinish: boolean;    // 지연 종료 여부
+  suspicious: boolean;       // 위치 의심 여부 (부정 출석 가능성)
+  commuteRiskDetected: boolean; // ETA 위험 (지각 가능성)
+  
+  // 최심 상태 데이터
+  latestAccuracyMeters?: number; // GPS 정확도 (m)
+  latestDistanceMeters?: number; // 수업지와의 거리 (m)
+  latestValidationReason?: string; // 검증 실패 사유
+  
+  // 특이 사항
+  finishReminderSent: boolean; // 종료 리마인드 발송 여부
+  movementDetectedWithoutDeparture: boolean; // 출발 전 이동 감지
+  stationaryAfterDeparture: boolean; // 출발 후 이동 미미
+};
+
+/** GPS 정확도 정책 값 */
+export const GPS_ACCURACY_THRESHOLD = {
+  NORMAL: 80,
+  TOLERABLE: 150,
+  RETRY_GUIDE: 300,
+};
+
+/** 출석 이벤트 상세 (GET /attendance-events) */
+export interface AttendanceEventDetail {
+  id: string;
+  lessonId: string;
+  eventType: AttendanceEventType;
+  createdAt: string;
+  
+  distanceMeters?: number;
+  accuracyMeters?: number;
+  locationStatus?: "NORMAL" | "LOW_ACCURACY" | "SUSPICIOUS";
+  validationReason?: string;
+  isValid: boolean;
+  
+  lat?: number;
+  lng?: number;
+}
