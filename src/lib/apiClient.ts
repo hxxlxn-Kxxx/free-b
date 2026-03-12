@@ -40,10 +40,16 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
         if (refreshRes.ok) {
           const refreshData = await refreshRes.json();
           const newAccess = refreshData.data?.accessToken || refreshData.accessToken;
+          const newRefresh = refreshData.data?.refreshToken || refreshData.refreshToken;
           
           // 새 토큰 저장 (로컬 + 쿠키)
           localStorage.setItem("accessToken", newAccess);
-          document.cookie = `accessToken=${newAccess}; path=/; max-age=3600;`;
+          document.cookie = `accessToken=${newAccess}; path=/; max-age=3600; SameSite=Lax;`;
+          
+          if (newRefresh) {
+            localStorage.setItem("refreshToken", newRefresh);
+            document.cookie = `refreshToken=${newRefresh}; path=/; max-age=604800; SameSite=Lax;`;
+          }
           
           // 막혔던 원래 요청에 새 토큰 끼워서 다시 보내기!
           headers.set("Authorization", `Bearer ${newAccess}`);
@@ -70,7 +76,12 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     throw new ApiError(response.status, errorData.message || "API Error", errorData.code);
   }
 
-  const data = await response.json();
+  // 204 No Content 혹은 빈 응답 처리
+  if (response.status === 204 || response.headers.get("content-length") === "0") {
+    return {} as T;
+  }
+
+  const data = await response.json().catch(() => ({}));
   return data.data !== undefined ? data.data : data;
 }
 

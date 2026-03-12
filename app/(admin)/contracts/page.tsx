@@ -182,15 +182,15 @@ function ContractsContent() {
   // lessonIdParam이 있고 데이터 로드가 완료되면 해당 계약 상세를 자동으로 연다.
   useEffect(() => {
     if (lessonIdParam && contracts.length > 0 && !selectedId) {
-      // lessonId가 명시적으로 달려있으면 해당 계약을 찾아서 연다.
+      // canonical contractId를 우선 매칭
       const match = contracts.find(c => 
-        c.id === lessonIdParam || 
-        c.contractId === lessonIdParam || 
-        (c.lesson as any)?.id === lessonIdParam || 
-        (c as any).lessonId === lessonIdParam
+        (c.contractId === lessonIdParam) || 
+        (c.id === lessonIdParam) || 
+        ((c.lesson as any)?.lessonId === lessonIdParam) ||
+        ((c.lesson as any)?.id === lessonIdParam)
       );
       if (match) {
-        setSelectedId(match.id);
+        setSelectedId(match.contractId || match.id);
       }
     }
   }, [lessonIdParam, contracts, selectedId]);

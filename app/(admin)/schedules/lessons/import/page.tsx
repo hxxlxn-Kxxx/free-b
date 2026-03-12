@@ -78,13 +78,22 @@ export default function DocumentImportPage() {
       const res = await apiClient.extractDocumentDraft(docId);
       const parsed = res.parsedJson || res.data?.parsedJson || {};
       
+      // datetime-local 형식 (YYYY-MM-DDTHH:mm)으로 변환 (로컬 시간 기준)
+      const formatToLocalForInput = (iso?: string) => {
+        if (!iso) return "";
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return "";
+        const pad = (n: number) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      };
+
       // 추출된 데이터로 폼 초기화
       setFormData({
         contractTitle: parsed.contractTitle || "",
         companyName: parsed.companyName || "",
         lectureTitle: parsed.lectureTitle || "",
-        startsAt: parsed.startsAt ? parsed.startsAt.slice(0, 16) : "", // datetime-local 형식 (YYYY-MM-DDTHH:mm)
-        endsAt: parsed.endsAt ? parsed.endsAt.slice(0, 16) : "",
+        startsAt: formatToLocalForInput(parsed.startsAt),
+        endsAt: formatToLocalForInput(parsed.endsAt),
         venueName: parsed.venueName || "",
         region: parsed.region || "",
         payAmount: parsed.payAmount ? String(parsed.payAmount) : "",
@@ -115,6 +124,8 @@ export default function DocumentImportPage() {
     try {
       const parsedJson = {
         ...formData,
+        startsAt: formData.startsAt ? new Date(formData.startsAt).toISOString() : null,
+        endsAt: formData.endsAt ? new Date(formData.endsAt).toISOString() : null,
         payAmount: formData.payAmount ? Number(formData.payAmount) : null,
       };
 
